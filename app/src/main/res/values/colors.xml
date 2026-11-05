@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ground">#F3F5F4</color>
+    <color name="ink">#131C22</color>
+    <color name="ink_soft">#4A5A63</color>
+    <color name="ink_faint">#75858D</color>
+    <color name="bar">#12313F</color>
+    <color name="warn">#B36A12</color>
+</resources>

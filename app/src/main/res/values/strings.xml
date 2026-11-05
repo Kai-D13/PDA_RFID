@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RFID Tem Check</string>
+    <!-- Date of the data bundled in assets/products.tsv.gz; update when re-generating it. -->
+    <string name="builtin_data_date">05/11/2026</string>
+</resources>

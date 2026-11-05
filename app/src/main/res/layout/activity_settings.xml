@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            style="@style/Label"
+            android:layout_marginTop="0dp"
+            android:text="DỮ LIỆU LOCAL" />
+
+        <TextView
+            android:id="@+id/s_data_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/ink"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/s_import"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Nhập dữ liệu (xlsx / csv / tsv.gz / json)" />
+
+        <TextView
+            style="@style/Help"
+            android:text="Cần cột product_id và type_tag (hoặc type_tag_label). rfid_unit_name, product_name là tùy chọn. File .xlsx lớn có thể mất 1–2 phút trên PDA; file .tsv.gz tạo bằng tools/xlsx_to_tsv.py nhập nhanh hơn nhiều." />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/s_reset"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Dữ liệu gốc" />
+
+            <Button
+                android:id="@+id/s_clear_cache"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Xóa cache QR" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/Label"
+            android:layout_marginTop="22dp"
+            android:text="TRA CỨU ONLINE (KHI MÃ QR CHƯA CÓ TRONG CACHE)" />
+
+        <CheckBox
+            android:id="@+id/s_online"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gọi API check khi không tra được offline" />
+
+        <TextView style="@style/Label" android:text="API base URL" />
+        <EditText
+            android:id="@+id/s_base_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textUri"
+            android:singleLine="true" />
+
+        <TextView style="@style/Label" android:text="Authorization (Basic token)" />
+        <EditText
+            android:id="@+id/s_token"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:hint="Basic xxxxx… (dán hoặc quét QR cài đặt)"
+            android:inputType="textPassword"
+            android:singleLine="true" />
+
+        <TextView style="@style/Label" android:text="customerId" />
+        <EditText
+            android:id="@+id/s_customer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:singleLine="true" />
+
+        <CheckBox
+            android:id="@+id/s_batch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Suy ra sản phẩm theo lô in (cùng timestamp + máy in)" />
+
+        <TextView
+            style="@style/Help"
+            android:text="Mã QR in cùng một lần (cùng 13 chữ số đầu và cùng mã máy in) được coi là cùng sản phẩm, nên chỉ cần gọi API cho mã đầu tiên của lô. Giảm mạnh số lần gọi API, nhưng là giả định — chỉ bật khi đã xác nhận với đội QR." />
+
+        <TextView
+            style="@style/Label"
+            android:layout_marginTop="22dp"
+            android:text="MÁY QUÉT PDA" />
+
+        <TextView
+            style="@style/Help"
+            android:text="Mặc định app nhận dữ liệu kiểu bàn phím (cấu hình máy quét gửi Enter sau mã) và các broadcast phổ biến của Urovo, iData, Newland, Chainway, Honeywell. Với Zebra DataWedge hoặc máy khác, đặt Intent action = com.buymed.rfidtag.SCAN hoặc nhập action riêng dưới đây." />
+
+        <TextView style="@style/Label" android:text="Broadcast action riêng (tùy chọn)" />
+        <EditText
+            android:id="@+id/s_action"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="vd: com.symbol.datawedge.RESULT"
+            android:inputType="textNoSuggestions"
+            android:singleLine="true" />
+
+        <TextView style="@style/Label" android:text="Tên extra chứa mã (tùy chọn)" />
+        <EditText
+            android:id="@+id/s_extra"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="vd: com.symbol.datawedge.data_string"
+            android:inputType="textNoSuggestions"
+            android:singleLine="true" />
+
+        <CheckBox
+            android:id="@+id/s_sound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Âm báo (thường: 1 bíp · gập: 2 bíp · lỗi: âm dài)" />
+
+        <CheckBox
+            android:id="@+id/s_vibrate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Rung khi lỗi / không có dữ liệu" />
+
+        <Button
+            android:id="@+id/s_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="LƯU CÀI ĐẶT" />
+    </LinearLayout>
+</ScrollView>

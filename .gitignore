@@ -1,0 +1,12 @@
+.gradle/
+.idea/
+build/
+app/build/
+.build-cache/
+local.properties
+*.iml
+# Signing key stays off the repo; keep your copy safe.
+signing/*.jks
+*.keystore
+dist/*.zip
+dist/*.idsig

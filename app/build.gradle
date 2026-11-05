@@ -1,0 +1,60 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.buymed.rfidtag'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.buymed.rfidtag'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    // The release key is NOT in the repo. Put it at signing/rfidtag-release.jks (same key as
+    // build_apk.sh) so new APKs can be installed over old ones; without it a debug key is used.
+    def releaseKey = rootProject.file('signing/rfidtag-release.jks')
+    signingConfigs {
+        release {
+            storeFile releaseKey
+            storePassword System.getenv('KS_PASS') ?: 'rfidtag123'
+            keyAlias System.getenv('KEY_ALIAS') ?: 'rfidtag'
+            keyPassword System.getenv('KS_PASS') ?: 'rfidtag123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig releaseKey.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    androidResources {
+        noCompress 'dat'
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'com.google.zxing:core:3.3.3'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'net.sf.kxml:kxml2:2.3.0'
+    testImplementation 'org.json:json:20240303'
+}

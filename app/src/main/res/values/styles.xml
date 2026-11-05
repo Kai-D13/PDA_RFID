@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#12313F</item>
+        <item name="android:colorPrimaryDark">#0B222D</item>
+        <item name="android:colorAccent">#1A5E7A</item>
+        <item name="android:windowBackground">@color/ground</item>
+    </style>
+
+    <style name="SettingsTheme" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorPrimary">#12313F</item>
+        <item name="android:colorPrimaryDark">#0B222D</item>
+        <item name="android:colorAccent">#1A5E7A</item>
+    </style>
+
+    <style name="CameraTheme" parent="android:Theme.Material.NoActionBar.Fullscreen" />
+
+    <style name="Label">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#4A5A63</item>
+    </style>
+
+    <style name="Help">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#75858D</item>
+    </style>
+
+    <style name="TopButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:minWidth">48dp</item>
+        <item name="android:paddingLeft">12dp</item>
+        <item name="android:paddingRight">12dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:background">@drawable/bg_button</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:layout_marginLeft">6dp</item>
+    </style>
+</resources>
