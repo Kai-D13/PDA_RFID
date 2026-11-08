@@ -76,7 +76,9 @@ jobs:
           RELEASE_CERT_SHA256: 2441b37448f4140b586aa1d310040706c08a257882416c87c0083da85fc5fad3
         run: |
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          digest() { "$APKSIGNER" verify --print-certs "$1" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'; }
+          # Older apksigner prints "Signer #1 certificate SHA-256 digest: X", newer prints
+          # "V2 Signer: certificate SHA-256 digest: X". More than one distinct digest fails the check.
+          digest() { "$APKSIGNER" verify --print-certs "$1" | sed -n 's/.*certificate SHA-256 digest: \([0-9a-f]\{64\}\).*/\1/p' | sort -u; }
           "$APKSIGNER" verify --verbose --print-certs "out/${APK_NAME}.apk"
           BUILT=$(digest "out/${APK_NAME}.apk")
           echo "built APK : ${BUILT}"
