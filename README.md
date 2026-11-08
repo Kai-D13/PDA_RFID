@@ -5,6 +5,8 @@ dữ liệu local đóng gói sẵn trong app (72.225 sản phẩm từ `rfid_cl
 
 File cài: `dist/rfid-tem-check-1.0.0.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
 
+Tài liệu cho dev/agent: [`CLAUDE.md`](CLAUDE.md), [`docs/HANDOFF.md`](docs/HANDOFF.md), [`docs/API.md`](docs/API.md).
+
 ---
 
 ## 1. Lưu ý quan trọng: mã QR hiện tại KHÔNG chứa product_id
@@ -141,7 +143,7 @@ sudo apt-get install -y openjdk-17-jdk aapt zipalign dalvik-exchange apksigner
 Test logic (parse QR, đọc Excel, đọc phản hồi API):
 
 ```bash
-./gradlew test -Drfid.xlsx=/duong/dan/rfid_client_san_pham.xlsx
+./gradlew test -Prfid.xlsx=/duong/dan/rfid_client_san_pham.xlsx
 ```
 
 ---

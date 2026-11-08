@@ -44,6 +44,10 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        // ./gradlew test -Prfid.xlsx=/path/file.xlsx also runs the test against the real export.
+        unitTests.all {
+            if (project.hasProperty('rfid.xlsx')) systemProperty 'rfid.xlsx', project.property('rfid.xlsx')
+        }
     }
 
     lint {
