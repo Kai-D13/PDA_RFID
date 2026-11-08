@@ -19,6 +19,9 @@ những gì đã/chưa kiểm chứng và backlog. Tóm tắt API ở `docs/API.
 - Đổi dữ liệu đóng gói: `python3 tools/xlsx_to_tsv.py <file.xlsx> app/src/main/assets/products.dat`
   rồi sửa `builtin_data_date` trong `app/src/main/res/values/strings.xml`.
   Asset phải có đuôi `.dat`, **không phải `.gz`** (aapt tự giải nén và đổi tên file `.gz`).
+- **Gradle wrapper giữ 8.14.3** (bản đã chạy được trên CI với AGP 8.7.3; AGP 8.7 chưa thử với
+  Gradle 9, muốn lên Gradle 9 thì nâng AGP cùng lúc và chạy lại CI). Extension Java/Gradle
+  của VS Code có thể tự nâng wrapper lên 9.x (đã xảy ra ngày 08/11/2026) — đừng commit thay đổi đó.
 - Sau khi sửa logic: chạy test (lệnh ở dưới) và build APK lại; ghi rõ cái gì đã chạy thật,
   cái gì chưa (chưa có thiết bị/emulator nào chạy app này).
 
@@ -28,7 +31,8 @@ những gì đã/chưa kiểm chứng và backlog. Tóm tắt API ở `docs/API.
 # Build APK không cần Android SDK (Linux/WSL; apt: openjdk-17-jdk aapt zipalign dalvik-exchange apksigner)
 ./build_apk.sh                       # -> dist/rfid-tem-check-<version>.apk
 
-# Build bằng Gradle / Android Studio (cần Android SDK 34 + JDK 17) — CHƯA từng chạy thử
+# Build bằng Gradle (cần Android SDK 34 + JDK 17). Đã chạy được trên GitHub Actions
+# (.github/workflows/build.yml, mỗi push/PR vào main); chưa thử trên Windows / Android Studio
 ./gradlew assembleRelease            # Windows: .\gradlew.bat assembleRelease
 
 # Test logic (JUnit4): QrParser, ProductStore, TableImporter (CSV/XLSX), ApiClient.parse

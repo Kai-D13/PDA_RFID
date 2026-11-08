@@ -47,6 +47,8 @@ android {
         // ./gradlew test -Prfid.xlsx=/path/file.xlsx also runs the test against the real export.
         unitTests.all {
             if (project.hasProperty('rfid.xlsx')) systemProperty 'rfid.xlsx', project.property('rfid.xlsx')
+            // Print each test so the CI log shows what actually ran.
+            testLogging { events 'passed', 'skipped', 'failed' }
         }
     }
 

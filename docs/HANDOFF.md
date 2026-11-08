@@ -10,12 +10,13 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
 - **Mục tiêu:** trên PDA kho, quét QR Buymed trên thùng/hộp → biết ngay dán **tem thường** hay
   **tem gập**, không phải chờ API chậm.
 - **Trạng thái:** v1.0.0 đã build thành APK đã ký (`dist/rfid-tem-check-1.0.0.apk`), 11 test logic
-  đều đạt. **Chưa chạy trên thiết bị thật hay emulator nào**, **chưa build bằng Gradle**,
-  **chưa gọi API thật** (máy build cũ không ra được mạng tới host API).
+  đều đạt. Từ 08/11/2026 có **GitHub Actions** chạy `./gradlew test assembleRelease` mỗi lần push
+  (mục 7d). **Chưa chạy trên thiết bị thật hay emulator nào**, **chưa gọi API thật** (máy build cũ
+  không ra được mạng tới host API).
 - **Ràng buộc lớn nhất:** mã QR hiện tại **không chứa product_id**, nên lần đầu gặp một mã vẫn phải
   hỏi API một lần (xem mục 3). Cách triệt để cần backend in `?p=<productId>` vào QR.
-- **Việc tiếp theo ưu tiên:** người dùng cài APK và thử trên PDA thật → sửa lỗi phát sinh; dựng đường
-  build trên máy người dùng (Windows) hoặc CI; chốt với đội QR về `?p=` và giả định "lô in".
+- **Việc tiếp theo ưu tiên:** người dùng cài APK và thử trên PDA thật → sửa lỗi phát sinh; đưa khóa
+  ký vào secret của CI để CI ra bản cài đè được; chốt với đội QR về `?p=` và giả định "lô in".
 
 ---
 
@@ -42,7 +43,8 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
 | `aapt dump badging`: package `com.buymed.rfidtag`, minSdk 21, targetSdk 34, quyền INTERNET/CAMERA/VIBRATE | ✅ |
 | Test JUnit (11 test), gồm đọc file Excel thật 72.225 dòng | ✅ chạy tay bằng `javac`/JUnitCore |
 | Chạy app trên PDA / emulator | ❌ chưa |
-| `./gradlew assembleRelease` / `./gradlew test` | ❌ chưa chạy (môi trường cũ chặn Google Maven) |
+| `./gradlew test assembleRelease` | ✅ trên GitHub Actions (run `42494930921`, commit `61a8594`: Gradle 8.14.3, JDK 17, ubuntu-26.04, 55 s). Chưa thử trên Windows / Android Studio |
+| APK từ CI | ✅ artifact `rfid-tem-check-1.0.0-61a8594-debug` (SHA-256 `01a64334…3e68`), `assets/products.dat` giống hệt bản 1.0.0, lưu không nén. Ký khóa debug của CI vì chưa có secret khóa release |
 | Gọi API thật từ app | ❌ chưa (host API bị chặn ở máy build) |
 | Broadcast của từng hãng PDA | ❌ chưa thử; vài action là phỏng đoán (mục 6) |
 | Camera scan | ❌ chưa thử trên phần cứng |
@@ -176,10 +178,15 @@ khóa mới** — APK đó sẽ không cài đè được bản cũ.
 Hệ quả của toolchain này: **không dùng lambda, method reference, stream**, chỉ Java 8 cú pháp cũ;
 không AndroidX/AAR (aapt1 không merge được resource/manifest của AAR).
 
-### b) Gradle / Android Studio (chưa kiểm chứng)
+### b) Gradle / Android Studio (đã chạy trên CI, chưa thử trên Windows)
 
-AGP 8.7.3, Gradle wrapper 8.14.3, compileSdk/targetSdk 34, minSdk 21, Java 1.8. Cần JDK 17+ và
-Android SDK 34. Ký release bằng `signing/rfidtag-release.jks` nếu có, không có thì dùng khóa debug.
+AGP 8.7.3, Gradle wrapper 8.14.3 (có `distributionSha256Sum`), compileSdk/targetSdk 34, minSdk 21,
+Java 1.8. Cần JDK 17+ và Android SDK 34. Ký release bằng `signing/rfidtag-release.jks` nếu có, không
+có thì dùng khóa debug.
+
+Lưu ý: khi mở repo trong VS Code ngày 08/11/2026, extension Java/Gradle đã tự chạy Gradle và
+**tự nâng wrapper lên 9.7.1** (sửa `gradlew`, `gradlew.bat`, `gradle-wrapper.jar`,
+`gradle-wrapper.properties`). Thay đổi đó đã được hoàn tác; nếu thấy lại thì không commit.
 Trên Windows: cài Android Studio → mở `C:\tags_RFID` → để Studio tạo `local.properties`/tải SDK →
 Build → Generate Signed/Build APK, hoặc `.\gradlew.bat assembleRelease`. Việc đầu tiên nên làm là
 chạy thử và sửa lỗi build nếu có.
@@ -189,6 +196,22 @@ chạy thử và sửa lỗi build nếu có.
 `dl.google.com` bị chặn (`maven.google.com` redirect về đó) → không tải được AGP/SDK. Maven Central
 đôi khi trả 429, đợi vài giây thử lại, hoặc dùng `repo1.maven.org` thay `repo.maven.apache.org`.
 `raw.githubusercontent.com` dùng được. Host API Buymed bị chặn.
+
+### d) GitHub Actions — `.github/workflows/build.yml`
+
+Chạy khi push vào `main`, khi có PR, hoặc bấm tay (*Run workflow*). `ubuntu-latest` (hiện là
+ubuntu-26.04, có sẵn Android SDK) + Temurin JDK 17, cache Gradle. Các bước: khôi phục khóa ký từ
+secret (nếu có) → `./gradlew --no-daemon test assembleRelease` (in từng test ra log) → đổi tên APK
+thành `rfid-tem-check-<versionName>-<sha7>-<release|debug>.apk`, ghi `SHA256SUMS.txt` và
+`aapt dump badging` vào Summary → upload artifact (giữ 30 ngày); test lỗi thì upload
+`app/build/reports/tests/` → xóa file khóa.
+
+- Secret `RELEASE_KEYSTORE_BASE64` (base64 của `signing/rfidtag-release.jks`) và tùy chọn
+  `RELEASE_KEYSTORE_PASSWORD` (map vào `KS_PASS` mà `app/build.gradle` đọc). **Chưa thêm** —
+  hiện CI ký bằng khóa debug sinh mới mỗi lần chạy, nên hai bản CI không cài đè lên nhau được.
+- Secret không có ở PR từ fork → PR luôn ra bản `debug`. `permissions: contents: read`.
+- Không đưa token API vào workflow; test file Excel thật (`-Prfid.xlsx`) không chạy trên CI vì file
+  không có trong repo.
 
 ## 8. Test
 
@@ -250,10 +273,9 @@ toàn bộ UI.
   machineCode = cùng sản phẩm" đúng không; (c) có endpoint nhẹ `code → productId` không.
 
 **P1 — dev**
-- B1. Dựng đường build được kiểm chứng: Android Studio trên Windows, hoặc **GitHub Actions**
-  (runner `ubuntu-latest` có sẵn Android SDK) chạy `./gradlew test assembleDebug` và đính kèm APK
-  làm artifact. Repo public: không đưa keystore/token vào workflow; nếu cần ký release trên CI thì dùng
-  GitHub Secrets (base64 keystore) và hỏi người dùng trước.
+- B1. ~~Dựng đường build được kiểm chứng~~ — **xong 08/11/2026** bằng GitHub Actions (mục 7d).
+  Còn lại: người dùng thêm secret khóa release; dùng APK từ CI thay cho build tay rồi phát hành bản
+  mới (tăng `versionCode`).
 - B2. Sửa lỗi phát sinh từ A1.
 - B3. Lưu lịch sử quét (SQLite) và xuất CSV (mã, product, tem, thời gian, nguồn) để đối soát.
 - B4. Tìm sản phẩm theo tên (ô tìm kiếm) cho trường hợp tem/QR hỏng.

@@ -121,6 +121,20 @@ python3 tools/xlsx_to_tsv.py rfid_client_san_pham.xlsx products.tsv.gz
 
 ## 5. Build lại APK
 
+**GitHub Actions (không cần cài gì):** mỗi lần push hoặc mở PR vào `main`, workflow
+[`.github/workflows/build.yml`](.github/workflows/build.yml) chạy test và build APK. Muốn build tay
+thì vào tab **Actions** → **Build APK** → **Run workflow**. Tải APK: mở lần chạy → mục **Artifacts**
+→ `rfid-tem-check-<phiên bản>-<commit>-<release|debug>` (file zip chứa APK và `SHA256SUMS.txt`,
+giữ 30 ngày).
+
+* Đuôi `debug`: ký bằng khóa tạm của CI, **mỗi lần build một khóa khác**. Chỉ dùng để thử: phải gỡ
+  bản đang cài trên máy rồi mới cài được (mất cache mã QR và cài đặt).
+* Đuôi `release`: ký bằng khóa thật, cài đè được lên bản cũ. Muốn có bản này thì thêm secret ở
+  *Settings → Secrets and variables → Actions*:
+  * `RELEASE_KEYSTORE_BASE64`: nội dung file khóa dạng base64. Tạo trên Windows:
+    `[Convert]::ToBase64String([IO.File]::ReadAllBytes("signing\rfidtag-release.jks")) | Set-Clipboard`
+  * `RELEASE_KEYSTORE_PASSWORD`: chỉ cần nếu mật khẩu khác mặc định trong `app/build.gradle`.
+
 **Android Studio / Gradle** (máy có mạng tới Google): mở thư mục này, hoặc
 
 ```bash
