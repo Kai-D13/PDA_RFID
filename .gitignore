@@ -10,3 +10,4 @@ signing/*.jks
 *.keystore
 dist/*.zip
 dist/*.idsig
+.vscode/
