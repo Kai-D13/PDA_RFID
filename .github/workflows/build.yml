@@ -1,0 +1,89 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # AGP 8.7.3 + Gradle 8.14.3 need JDK 17. The runner already ships the Android SDK.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # Optional: sign with the real release key so the APK installs over earlier builds.
+      # Repository secrets (Settings > Secrets and variables > Actions):
+      #   RELEASE_KEYSTORE_BASE64    base64 of signing/rfidtag-release.jks
+      #   RELEASE_KEYSTORE_PASSWORD  only if it is not the default in app/build.gradle
+      # Without them the APK is signed with a throwaway CI debug key.
+      - name: Restore release key
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > signing/rfidtag-release.jks
+            echo "SIGNING=release" >> "$GITHUB_ENV"
+          else
+            echo "::warning::RELEASE_KEYSTORE_BASE64 is not set: the APK is signed with a CI debug key and cannot be installed over other builds."
+            echo "SIGNING=debug" >> "$GITHUB_ENV"
+          fi
+
+      - name: Unit tests and release APK
+        env:
+          KS_PASS: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        run: ./gradlew --no-daemon --stacktrace test assembleRelease
+
+      - name: Collect APK
+        run: |
+          VERSION=$(sed -n "s/.*versionName '\(.*\)'.*/\1/p" app/build.gradle)
+          NAME="rfid-tem-check-${VERSION}-${GITHUB_SHA::7}-${SIGNING}"
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/${NAME}.apk"
+          (cd out && sha256sum "${NAME}.apk" > SHA256SUMS.txt)
+          echo "APK_NAME=${NAME}" >> "$GITHUB_ENV"
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt | sort -V | tail -1)
+          {
+            echo "### ${NAME}.apk"
+            echo
+            echo "Signing: **${SIGNING}**"
+            echo
+            echo '```'
+            cat out/SHA256SUMS.txt
+            "$AAPT" dump badging "out/${NAME}.apk" | grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission):" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.APK_NAME }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Remove release key
+        if: always()
+        run: rm -f signing/rfidtag-release.jks
