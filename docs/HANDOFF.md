@@ -15,8 +15,8 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
   không ra được mạng tới host API).
 - **Ràng buộc lớn nhất:** mã QR hiện tại **không chứa product_id**, nên lần đầu gặp một mã vẫn phải
   hỏi API một lần (xem mục 3). Cách triệt để cần backend in `?p=<productId>` vào QR.
-- **Việc tiếp theo ưu tiên:** người dùng cài APK và thử trên PDA thật → sửa lỗi phát sinh; đưa khóa
-  ký vào secret của CI để CI ra bản cài đè được; chốt với đội QR về `?p=` và giả định "lô in".
+- **Việc tiếp theo ưu tiên:** người dùng cài APK và thử trên PDA thật → sửa lỗi phát sinh; chốt với
+  đội QR về `?p=` và giả định "lô in". CI đã ký bằng khóa release (mục 7d).
 
 ---
 
@@ -44,7 +44,8 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
 | Test JUnit (11 test), gồm đọc file Excel thật 72.225 dòng | ✅ chạy tay bằng `javac`/JUnitCore |
 | Chạy app trên PDA / emulator | ❌ chưa |
 | `./gradlew test assembleRelease` | ✅ trên GitHub Actions (run `42494930921`, commit `61a8594`: Gradle 8.14.3, JDK 17, ubuntu-26.04, 55 s). Chưa thử trên Windows / Android Studio |
-| APK từ CI | ✅ artifact `rfid-tem-check-1.0.0-61a8594-debug` (SHA-256 `01a64334…3e68`), `assets/products.dat` giống hệt bản 1.0.0, lưu không nén. Ký khóa debug của CI vì chưa có secret khóa release |
+| APK từ CI ký khóa release | ✅ run `42498277883`, artifact `rfid-tem-check-1.0.0-26e825f-release` (APK SHA-256 `1f935943…6312`): apksigner v1+v2 đạt, chứng chỉ `2441b374…5fad3` trùng `dist/rfid-tem-check-1.0.0.apk` (đối chiếu cả trên CI lẫn trên máy). `assets/products.dat` giống bản 1.0.0, lưu không nén. Vẫn là versionCode 1 — chưa phát hành |
+| Artifact CI `61a8594-debug`, `99f2ed3-debug` | ⚠️ ký khóa debug (trước khi có secret), **không cài lên PDA** đang chạy 1.0.0 |
 | Gọi API thật từ app | ❌ chưa (host API bị chặn ở máy build) |
 | Broadcast của từng hãng PDA | ❌ chưa thử; vài action là phỏng đoán (mục 6) |
 | Camera scan | ❌ chưa thử trên phần cứng |
@@ -211,9 +212,10 @@ Khóa release: PKCS12 (dù đuôi `.jks`), alias `rfidtag`, `CN=RFID Tem Check, 
 2054-03-23, chứng chỉ SHA-256 `2441b37448f4140b586aa1d310040706c08a257882416c87c0083da85fc5fad3`
 (trùng chứng chỉ trong `dist/rfid-tem-check-1.0.0.apk`, đã đối chiếu ngày 08/11/2026).
 
-- Secret `RELEASE_KEYSTORE_BASE64` (base64 của `signing/rfidtag-release.jks`) và tùy chọn
-  `RELEASE_KEYSTORE_PASSWORD` (map vào `KS_PASS` mà `app/build.gradle` đọc). **Chưa thêm** —
-  hiện CI ký bằng khóa debug sinh mới mỗi lần chạy, nên hai bản CI không cài đè lên nhau được.
+- Secret `RELEASE_KEYSTORE_BASE64` (base64 của `signing/rfidtag-release.jks`) **đã thêm ngày
+  08/11/2026** → push vào `main` ra bản `-release`. `RELEASE_KEYSTORE_PASSWORD` (map vào `KS_PASS`
+  mà `app/build.gradle` đọc) không cần vì mật khẩu là mặc định. Thiếu secret thì CI ký bằng khóa
+  debug sinh mới mỗi lần chạy (đuôi `-debug`), các bản đó không cài đè lên nhau được.
 - Secret không có ở PR từ fork → PR luôn ra bản `debug`. `permissions: contents: read`.
 - Không đưa token API vào workflow; test file Excel thật (`-Prfid.xlsx`) không chạy trên CI vì file
   không có trong repo.
@@ -279,8 +281,8 @@ toàn bộ UI.
 
 **P1 — dev**
 - B1. ~~Dựng đường build được kiểm chứng~~ — **xong 08/11/2026** bằng GitHub Actions (mục 7d).
-  Còn lại: người dùng thêm secret khóa release; dùng APK từ CI thay cho build tay rồi phát hành bản
-  mới (tăng `versionCode`).
+  Secret khóa release đã thêm, CI ra bản `-release` cài đè được. Còn lại: lần phát hành tới dùng APK
+  từ CI, tăng `versionCode`/`versionName` ở **cả** `app/build.gradle` và `build_apk.sh`.
 - B2. Sửa lỗi phát sinh từ A1.
 - B3. Lưu lịch sử quét (SQLite) và xuất CSV (mã, product, tem, thời gian, nguồn) để đối soát.
 - B4. Tìm sản phẩm theo tên (ô tìm kiếm) cho trường hợp tem/QR hỏng.
