@@ -69,8 +69,13 @@ public final class Resolver {
                     return fail(r, start, "Chưa có token API. Vào Cài đặt để nhập token "
                             + "(hoặc quét QR cài đặt), hoặc nhập product ID.");
                 }
+                // Set before the call so a failure is not labelled with a local step.
+                r.source = "API Buymed";
                 api = ApiClient.check(settings, p.code);
                 if (!api.ok) {
+                    if (api.networkError) {
+                        return fail(r, start, api.message + " Hoặc bấm ABC để nhập product ID.");
+                    }
                     String msg = api.message == null || api.message.isEmpty() ? "" : " — " + api.message;
                     return fail(r, start, "API lỗi " + api.errorCode + msg);
                 }

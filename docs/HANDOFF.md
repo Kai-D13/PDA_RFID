@@ -42,14 +42,20 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
 | APK đã ký, `dist/rfid-tem-check-1.0.0.apk` (1,9 MB, SHA-256 `5e9b474b…a5e4`) | ✅ build bằng `build_apk.sh` |
 | `aapt dump badging`: package `com.buymed.rfidtag`, minSdk 21, targetSdk 34, quyền INTERNET/CAMERA/VIBRATE | ✅ |
 | Test JUnit (11 test), gồm đọc file Excel thật 72.225 dòng | ✅ chạy tay bằng `javac`/JUnitCore |
-| Chạy app trên PDA / emulator | ❌ chưa |
+| Chạy app trên PDA thật (08/11/2026, v1.0.0, model chưa rõ) | ⚠️ cài được, mở được, nạp 72.225 SP, nhận được mã QR thật `1792815001086C1`. Gọi API lỗi `Unable to resolve host "open-apis.buymed.com"` vì **PDA không có mạng** (từ PC host vẫn phân giải bình thường, API trả 401 khi không có token). Phát hiện: nhãn ONLINE chỉ phản ánh cài đặt; dòng "Nguồn" ghi sai bước local khi API lỗi; máy đang bật "Suy ra theo lô in" → sửa ở v1.0.1 |
 | `./gradlew test assembleRelease` | ✅ trên GitHub Actions (run `42494930921`, commit `61a8594`: Gradle 8.14.3, JDK 17, ubuntu-26.04, 55 s). Chưa thử trên Windows / Android Studio |
 | APK từ CI ký khóa release | ✅ run `42498277883`, artifact `rfid-tem-check-1.0.0-26e825f-release` (APK SHA-256 `1f935943…6312`): apksigner v1+v2 đạt, chứng chỉ `2441b374…5fad3` trùng `dist/rfid-tem-check-1.0.0.apk` (đối chiếu cả trên CI lẫn trên máy). `assets/products.dat` giống bản 1.0.0, lưu không nén. Vẫn là versionCode 1 — chưa phát hành |
 | Artifact CI `61a8594-debug`, `99f2ed3-debug` | ⚠️ ký khóa debug (trước khi có secret), **không cài lên PDA** đang chạy 1.0.0 |
-| Gọi API thật từ app | ❌ chưa (host API bị chặn ở máy build) |
+| Gọi API thật từ app | ❌ chưa (PDA chưa có mạng ở lần thử đầu) |
 | Broadcast của từng hãng PDA | ❌ chưa thử; vài action là phỏng đoán (mục 6) |
 | Camera scan | ❌ chưa thử trên phần cứng |
 | Nhập `.xlsx` 19 MB trên PDA (tốc độ, RAM) | ❌ chưa đo |
+
+**v1.0.1** (versionCode 2, 08/11/2026; chỉ chạy test trên CI, chưa thử trên PDA): `ApiClient.describeFailure`
+đổi lỗi mạng thành câu dễ hiểu (`NO_NETWORK` khi DNS lỗi, `TIMEOUT`, `CONNECT`, `SSL` → nhắc kiểm tra ngày
+giờ hoặc Wi-Fi đòi đăng nhập), kèm gợi ý nhập product ID; dòng "Nguồn" ghi "API Buymed" khi lỗi ở bước
+API; nhãn đầu màn hình hiện **MẤT MẠNG** (đỏ) khi bật online mà máy không có mạng, cập nhật theo
+`CONNECTIVITY_ACTION`; thêm quyền `ACCESS_NETWORK_STATE`.
 
 Khóa ký `signing/rfidtag-release.jks` **không có trong repo** (repo public). Người dùng giữ bản
 duy nhất; phải chép vào `signing/` trước khi build release, nếu không APK mới sẽ không cài đè được

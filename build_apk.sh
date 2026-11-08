@@ -11,8 +11,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VERSION_NAME="1.0.0"
-VERSION_CODE=1
+VERSION_NAME="1.0.1"
+VERSION_CODE=2
 MIN_SDK=21
 TARGET_SDK=34
 PACKAGE="com.buymed.rfidtag"

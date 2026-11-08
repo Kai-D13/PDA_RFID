@@ -178,4 +178,38 @@ public class LogicTest {
         assertFalse(e.ok);
         assertEquals("INVALID_QR_CODE", e.errorCode);
     }
+
+    /** What the PDA showed with Wi-Fi off: the DNS failure must read as "no internet". */
+    @Test public void explainsNetworkFailures() {
+        assertEquals("open-apis.buymed.com", ApiClient.hostOf("https://open-apis.buymed.com"));
+
+        ApiClient.Response dns = new ApiClient.Response();
+        ApiClient.describeFailure(new java.net.UnknownHostException(
+                "Unable to resolve host \"open-apis.buymed.com\": No address associated with hostname"),
+                "open-apis.buymed.com", dns);
+        assertFalse(dns.ok);
+        assertTrue(dns.networkError);
+        assertEquals("NO_NETWORK", dns.errorCode);
+        assertTrue(dns.message.contains("chưa có Internet"));
+        assertTrue(dns.message.contains("open-apis.buymed.com"));
+
+        ApiClient.Response slow = new ApiClient.Response();
+        ApiClient.describeFailure(new java.net.SocketTimeoutException("timeout"), "h", slow);
+        assertEquals("TIMEOUT", slow.errorCode);
+
+        ApiClient.Response refused = new ApiClient.Response();
+        ApiClient.describeFailure(new java.net.ConnectException("refused"), "h", refused);
+        assertEquals("CONNECT", refused.errorCode);
+
+        ApiClient.Response tls = new ApiClient.Response();
+        ApiClient.describeFailure(new javax.net.ssl.SSLHandshakeException("cert"), "h", tls);
+        assertEquals("SSL", tls.errorCode);
+
+        // Failing while reading the body after an HTTP status is not a connectivity problem.
+        ApiClient.Response body = new ApiClient.Response();
+        body.http = 502;
+        ApiClient.describeFailure(new java.io.IOException("reset"), "h", body);
+        assertEquals("NETWORK", body.errorCode);
+        assertFalse(body.networkError);
+    }
 }

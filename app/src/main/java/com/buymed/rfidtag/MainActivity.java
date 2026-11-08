@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.GradientDrawable;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -64,6 +66,7 @@ public class MainActivity extends Activity {
     private long lastAt;
     private boolean keyboardShown;
     private BroadcastReceiver scanReceiver;
+    private BroadcastReceiver netReceiver;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -161,6 +164,7 @@ public class MainActivity extends Activity {
         super.onResume();
         refreshHeader();
         registerScanner();
+        registerNetworkWatch();
         input.requestFocus();
     }
 
@@ -170,6 +174,34 @@ public class MainActivity extends Activity {
         if (scanReceiver != null) {
             try { unregisterReceiver(scanReceiver); } catch (IllegalArgumentException ignored) {}
             scanReceiver = null;
+        }
+        if (netReceiver != null) {
+            try { unregisterReceiver(netReceiver); } catch (IllegalArgumentException ignored) {}
+            netReceiver = null;
+        }
+    }
+
+    /** Keeps the ONLINE badge honest when Wi-Fi / mobile data goes on or off. */
+    private void registerNetworkWatch() {
+        netReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) { refreshHeader(); }
+        };
+        IntentFilter f = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(netReceiver, f, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(netReceiver, f);
+        }
+    }
+
+    private boolean hasNetwork() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo ni = cm == null ? null : cm.getActiveNetworkInfo();
+            return ni != null && ni.isConnected();
+        } catch (SecurityException e) {
+            return true; // cannot tell; do not claim we are offline
         }
     }
 
@@ -298,7 +330,10 @@ public class MainActivity extends Activity {
             dataInfo.setText(String.format(Locale.US, "%,d", repo.size()).replace(',', '.') + " SP · " + repo.sourceLabel());
         }
         Settings s = app.settings();
-        if (s.canCallApi()) {
+        if (s.canCallApi() && !hasNetwork()) {
+            modeBadge.setText("MẤT MẠNG");
+            modeBadge.setBackgroundColor(0xFFB3261E);
+        } else if (s.canCallApi()) {
             modeBadge.setText("ONLINE");
             modeBadge.setBackgroundColor(0xFF2E7D52);
         } else {

@@ -7,8 +7,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
+
+import javax.net.ssl.SSLException;
 
 /** Calls POST /api/v1/circa/rfid-qr/check, only to find the product behind a QR code. */
 public final class ApiClient {
@@ -18,6 +23,8 @@ public final class ApiClient {
         public int http;
         public String errorCode;
         public String message;
+        /** True when no HTTP answer came back (no network, DNS, timeout, TLS). */
+        public boolean networkError;
         public long productId = -1;
         public String productName;
         public String rfidTagType;
@@ -57,9 +64,7 @@ public final class ApiClient {
             String text = in == null ? "" : readAll(in);
             parse(text, r);
         } catch (IOException e) {
-            r.ok = false;
-            r.errorCode = "NETWORK";
-            r.message = "Không gọi được API: " + e.getMessage();
+            describeFailure(e, hostOf(s.baseUrl()), r);
         } catch (Exception e) {
             r.ok = false;
             r.errorCode = "BAD_RESPONSE";
@@ -69,6 +74,39 @@ public final class ApiClient {
             r.elapsedMs = System.currentTimeMillis() - start;
         }
         return r;
+    }
+
+    /** Turns a transport failure into a message a warehouse user can act on. */
+    static void describeFailure(IOException e, String host, Response r) {
+        r.ok = false;
+        r.networkError = r.http == 0;
+        if (e instanceof UnknownHostException) {
+            r.errorCode = "NO_NETWORK";
+            r.message = "PDA chưa có Internet: không tìm thấy máy chủ " + host
+                    + ". Kiểm tra Wi-Fi / 4G rồi quét lại.";
+        } else if (e instanceof SocketTimeoutException) {
+            r.errorCode = "TIMEOUT";
+            r.message = "API không phản hồi kịp (mạng yếu hoặc máy chủ chậm). Quét lại sau.";
+        } else if (e instanceof ConnectException) {
+            r.errorCode = "CONNECT";
+            r.message = "Không kết nối được tới " + host
+                    + ". Mạng Wi-Fi có thể đang chặn, thử Wi-Fi khác hoặc 4G.";
+        } else if (e instanceof SSLException) {
+            r.errorCode = "SSL";
+            r.message = "Lỗi kết nối bảo mật tới " + host
+                    + ". Kiểm tra ngày giờ của PDA, hoặc Wi-Fi đang đòi đăng nhập.";
+        } else {
+            r.errorCode = "NETWORK";
+            r.message = "Không gọi được API: " + e.getMessage();
+        }
+    }
+
+    static String hostOf(String baseUrl) {
+        try {
+            return new URL(baseUrl).getHost();
+        } catch (Exception e) {
+            return baseUrl;
+        }
     }
 
     static void parse(String text, Response r) throws Exception {
