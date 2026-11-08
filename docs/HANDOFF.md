@@ -203,8 +203,13 @@ Chạy khi push vào `main`, khi có PR, hoặc bấm tay (*Run workflow*). `ubu
 ubuntu-26.04, có sẵn Android SDK) + Temurin JDK 17, cache Gradle. Các bước: khôi phục khóa ký từ
 secret (nếu có) → `./gradlew --no-daemon test assembleRelease` (in từng test ra log) → đổi tên APK
 thành `rfid-tem-check-<versionName>-<sha7>-<release|debug>.apk`, ghi `SHA256SUMS.txt` và
-`aapt dump badging` vào Summary → upload artifact (giữ 30 ngày); test lỗi thì upload
-`app/build/reports/tests/` → xóa file khóa.
+`aapt dump badging` vào Summary → `apksigner verify --print-certs` (bản `release` mà chứng chỉ
+khác SHA-256 `2441b374…5fad3` của khóa RFID Tem Check thì **fail**, không upload) → upload artifact
+(giữ 30 ngày); test lỗi thì upload `app/build/reports/tests/` → xóa file khóa.
+
+Khóa release: PKCS12 (dù đuôi `.jks`), alias `rfidtag`, `CN=RFID Tem Check, O=Buymed, C=VN`, hạn đến
+2054-03-23, chứng chỉ SHA-256 `2441b37448f4140b586aa1d310040706c08a257882416c87c0083da85fc5fad3`
+(trùng chứng chỉ trong `dist/rfid-tem-check-1.0.0.apk`, đã đối chiếu ngày 08/11/2026).
 
 - Secret `RELEASE_KEYSTORE_BASE64` (base64 của `signing/rfidtag-release.jks`) và tùy chọn
   `RELEASE_KEYSTORE_PASSWORD` (map vào `KS_PASS` mà `app/build.gradle` đọc). **Chưa thêm** —
