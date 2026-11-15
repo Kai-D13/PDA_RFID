@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -14,10 +15,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -54,13 +57,25 @@ public class MainActivity extends Activity {
 
     private RfidApp app;
     private EditText input;
-    private TextView dataInfo, modeBadge, resultTag, resultSub, productName, productMeta, codeMeta, sourceMeta, warnText, counters;
-    private View resultCard;
+    private TextView dataInfo, modeBadge, storeBar, resultTag, resultSub, productName, productMeta, codeMeta,
+            stockMeta, sourceMeta, warnText, moreHint, counters;
+    private View resultCard, productPanel;
     private HistoryAdapter adapter;
     private final ArrayList<LookupResult> history = new ArrayList<LookupResult>();
     private int cntThuong, cntGap, cntOther;
+    /** Scan resolution; kept apart from {@link #net} so a slow stock call never delays the tag type. */
     private ExecutorService exec;
+    /** Stock + product details. */
+    private ExecutorService net;
     private Handler ui;
+    /** Result shown on the card/panel; null while a new scan is being looked up. Read by {@link #net}. */
+    private volatile LookupResult current;
+    private ScanDetailDialog popup;
+    /** Result the open popup shows, or null. Read by {@link #net}. */
+    private volatile LookupResult popupFor;
+    private boolean destroyed;
+    private boolean storePrompted;
+    private String shownStoreId;
     private Feedback feedback;
     private String lastText;
     private long lastAt;
@@ -75,23 +90,42 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         ui = new Handler(Looper.getMainLooper());
         exec = Executors.newSingleThreadExecutor();
+        net = Executors.newSingleThreadExecutor();
         feedback = new Feedback(this);
 
         input = (EditText) findViewById(R.id.input);
         dataInfo = (TextView) findViewById(R.id.data_info);
         modeBadge = (TextView) findViewById(R.id.mode_badge);
+        storeBar = (TextView) findViewById(R.id.store_bar);
         resultCard = findViewById(R.id.result_card);
         resultTag = (TextView) findViewById(R.id.result_tag);
         resultSub = (TextView) findViewById(R.id.result_sub);
+        productPanel = findViewById(R.id.product_panel);
         productName = (TextView) findViewById(R.id.product_name);
         productMeta = (TextView) findViewById(R.id.product_meta);
         codeMeta = (TextView) findViewById(R.id.code_meta);
+        stockMeta = (TextView) findViewById(R.id.stock_meta);
         sourceMeta = (TextView) findViewById(R.id.source_meta);
         warnText = (TextView) findViewById(R.id.warn_text);
+        moreHint = (TextView) findViewById(R.id.more_hint);
         counters = (TextView) findViewById(R.id.counters);
         ListView list = (ListView) findViewById(R.id.history);
         adapter = new HistoryAdapter(this, history);
         list.setAdapter(adapter);
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position >= 0 && position < history.size()) openPopup(history.get(position));
+            }
+        });
+        productPanel.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { if (current != null) openPopup(current); }
+        });
+        storeBar.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Class<?> target = app.settings().hasCircaKey() ? StoreActivity.class : SettingsActivity.class;
+                startActivity(new Intent(MainActivity.this, target));
+            }
+        });
 
         if (Build.VERSION.SDK_INT >= 21) input.setShowSoftInputOnFocus(false);
         input.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -166,6 +200,22 @@ public class MainActivity extends Activity {
         registerScanner();
         registerNetworkWatch();
         input.requestFocus();
+        promptStoreIfNeeded();
+        // Back from "Chọn kho" with another store: the stock on screen belongs to the old one.
+        String store = app.settings().storeId();
+        if (shownStoreId != null && !shownStoreId.equals(store) && current != null && current.hasProduct()) {
+            loadExtra(current, true);
+        }
+        shownStoreId = store;
+    }
+
+    /** New flow: open the app -> pick the Circa store once -> scan. Asked once per screen. */
+    private void promptStoreIfNeeded() {
+        Settings s = app.settings();
+        if (!storePrompted && s.hasCircaKey() && !s.hasStore()) {
+            storePrompted = true;
+            startActivity(new Intent(this, StoreActivity.class));
+        }
     }
 
     @Override
@@ -208,7 +258,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // A lookup may still finish after this; show()/loadExtra() check the flag.
+        destroyed = true;
+        if (popup != null) popup.dismiss();
         exec.shutdownNow();
+        net.shutdownNow();
         feedback.release();
     }
 
@@ -290,6 +344,8 @@ public class MainActivity extends Activity {
         lastText = clean;
         lastAt = now;
 
+        // A broadcast scanner keeps working while the popup is open; the new scan wins.
+        if (popup != null) popup.dismiss();
         showBusy(clean);
         exec.execute(new Runnable() {
             @Override
@@ -304,7 +360,7 @@ public class MainActivity extends Activity {
                     r.error = "Lỗi xử lý: " + e;
                 }
                 final LookupResult result = r;
-                ui.post(new Runnable() { @Override public void run() { show(result); } });
+                ui.post(new Runnable() { @Override public void run() { if (!destroyed) show(result); } });
             }
         });
     }
@@ -331,53 +387,62 @@ public class MainActivity extends Activity {
         }
         Settings s = app.settings();
         if (s.canCallApi() && !hasNetwork()) {
+            tint(modeBadge, 0xFFB3261E);
             modeBadge.setText("MẤT MẠNG");
-            modeBadge.setBackgroundColor(0xFFB3261E);
         } else if (s.canCallApi()) {
+            tint(modeBadge, 0xFF187A34);
             modeBadge.setText("ONLINE");
-            modeBadge.setBackgroundColor(0xFF2E7D52);
         } else {
+            tint(modeBadge, 0xFF6B7780);
             modeBadge.setText("OFFLINE");
-            modeBadge.setBackgroundColor(0xFF6B7780);
+        }
+        if (!s.hasCircaKey()) {
+            storeBar.setText("⚠ Chưa có khóa API Circa — chạm để cài đặt");
+        } else if (!s.hasStore()) {
+            storeBar.setText("⚠ Chưa chọn kho — chạm để chọn  ›");
+        } else {
+            storeBar.setText("Kho: " + s.storeLabel() + "  ›");
         }
     }
 
-    private void setCard(int color, String tag, String sub) {
-        GradientDrawable bg = (GradientDrawable) resultCard.getBackground().mutate();
-        bg.setColor(color);
+    private static void tint(View v, int color) {
+        ((GradientDrawable) v.getBackground().mutate()).setColor(color);
+    }
+
+    private void setCard(int color, String tag, String sub, boolean subBold) {
+        tint(resultCard, color);
         resultTag.setText(tag);
         resultSub.setText(sub);
+        resultSub.setVisibility(sub == null || sub.isEmpty() ? View.GONE : View.VISIBLE);
+        resultSub.setTypeface(null, subBold ? Typeface.BOLD : Typeface.NORMAL);
+        resultSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, subBold ? 17 : 15);
     }
 
     private void showIdle() {
-        setCard(0xFF12313F, "SẴN SÀNG", "Quét mã QR trên thùng / hộp, hoặc nhập product ID");
-        productName.setText("");
-        productMeta.setText("");
-        codeMeta.setText("");
-        sourceMeta.setText("");
-        warnText.setVisibility(View.GONE);
+        setCard(0xFF1F5FA8, "SẴN SÀNG", "Quét mã QR trên thùng / hộp, hoặc nhập product ID", false);
+        productPanel.setVisibility(View.GONE);
     }
 
     private void showBusy(String text) {
-        setCard(0xFF33434D, "ĐANG TRA…", text);
+        setCard(0xFF4B5563, "ĐANG TRA…", text, false);
+        // The panel still shows the previous product; do not let a tap open it as if it were this scan.
+        current = null;
     }
 
     private void show(LookupResult r) {
+        // A new result replaces whatever popup was open (e.g. one opened while "ĐANG TRA…").
+        if (popup != null) popup.dismiss();
         refreshHeader();
-        setCard(r.color(), r.headline(), r.status == LookupResult.ERROR ? r.error
-                : r.rfidUnit != null ? "Dán tem trên: " + r.rfidUnit.toUpperCase() : r.status == LookupResult.CONFIG ? r.source : "");
-        productName.setText(r.productName != null ? r.productName : "");
-        productMeta.setText(r.productId >= 0 ? "Product ID: " + r.productId
-                + (r.rfidUnit != null ? "   ·   Đơn vị dán tem: " + r.rfidUnit : "") : "");
-        codeMeta.setText(r.code != null ? "Mã QR: " + r.code : r.input != null ? "Đầu vào: " + r.input : "");
-        sourceMeta.setText(r.source != null && r.status != LookupResult.CONFIG
-                ? "Nguồn: " + r.source + "   ·   " + r.elapsedMs + " ms" : "");
-        if (r.warning != null) {
-            warnText.setText("⚠ " + r.warning);
-            warnText.setVisibility(View.VISIBLE);
+        if (r.status == LookupResult.ERROR) {
+            setCard(r.color(), r.headline(), r.error, false);
+        } else if (r.status == LookupResult.CONFIG) {
+            setCard(r.color(), r.headline(), r.source, false);
         } else {
-            warnText.setVisibility(View.GONE);
+            setCard(r.color(), r.headline(),
+                    r.rfidUnit != null ? "Dán tem trên: " + r.rfidUnit.toUpperCase(Locale.ROOT) : "", true);
         }
+        current = r;
+        renderPanel(r);
 
         if (r.status == LookupResult.TEM_THUONG) cntThuong++;
         else if (r.status == LookupResult.TEM_GAP) cntGap++;
@@ -388,6 +453,136 @@ public class MainActivity extends Activity {
         updateCounters();
         feedback.play(r, app.settings());
         input.requestFocus();
+
+        if (r.hasProduct()) loadExtra(r, false);
+        if (r.status == LookupResult.CONFIG) {
+            // A settings QR may have brought a Circa key; continue with picking the store.
+            storePrompted = false;
+            promptStoreIfNeeded();
+        }
+    }
+
+    /** The white panel under the tag card: product, IDs, QR / lot, stock, source, warning. */
+    private void renderPanel(LookupResult r) {
+        if (r.status == LookupResult.CONFIG) {
+            productPanel.setVisibility(View.GONE);
+            return;
+        }
+        productPanel.setVisibility(View.VISIBLE);
+        String name = r.displayName();
+        productName.setText(name != null ? name : r.status == LookupResult.ERROR ? "Không tra được mã" : r.headline());
+
+        StringBuilder meta = new StringBuilder();
+        if (r.productId >= 0) meta.append("ID ").append(r.productId);
+        if (r.lot != null) meta.append(meta.length() > 0 ? "  ·  " : "").append("Lô ").append(r.lot);
+        if (r.expiry != null) meta.append(meta.length() > 0 ? "  ·  " : "").append("HSD ").append(r.expiry);
+        productMeta.setText(meta);
+        productMeta.setVisibility(meta.length() > 0 ? View.VISIBLE : View.GONE);
+
+        codeMeta.setText(r.code != null ? "QR " + r.code : r.input != null ? "Đầu vào: " + r.input : "");
+
+        String stock = r.hasProduct() ? r.stockSummary() : null;
+        if (stock != null) {
+            boolean bad = r.stock == null && !r.stockLoading;
+            // A failed refresh keeps the last numbers of the same store; say they are not fresh.
+            boolean stale = r.stock != null && !r.stockLoading && r.stockError != null;
+            stockMeta.setText("Tồn kho: " + stock
+                    + (stale ? "  (chưa làm mới được, số lúc " + DateFmt.time(r.stock.fetchedAt) + ")" : ""));
+            stockMeta.setTextColor(bad ? 0xFFB3261E : stale ? 0xFFB45309 : 0xFF1F2937);
+            stockMeta.setVisibility(View.VISIBLE);
+        } else {
+            stockMeta.setVisibility(View.GONE);
+        }
+
+        sourceMeta.setText(r.source != null ? "Nguồn: " + r.source + "  ·  " + r.elapsedMs + " ms" : "");
+        sourceMeta.setVisibility(r.source != null ? View.VISIBLE : View.GONE);
+        // The error itself is on the card; the panel only repeats warnings.
+        if (r.warning != null) {
+            warnText.setText("⚠ " + r.warning);
+            warnText.setVisibility(View.VISIBLE);
+        } else {
+            warnText.setVisibility(View.GONE);
+        }
+        moreHint.setVisibility(r.hasProduct() ? View.VISIBLE : View.GONE);
+    }
+
+    // ------------------------------------------------------------------ stock + popup
+
+    /** Fetches stock and product details off the UI thread, then refreshes every view showing {@code r}. */
+    private void loadExtra(final LookupResult r, final boolean force) {
+        if (destroyed) return;
+        // Numbers from another store must never be shown as the current store's stock.
+        dropStockOfOtherStore(r);
+        r.stockLoading = true;
+        r.stockError = null;
+        refreshViewsFor(r);
+        net.execute(new Runnable() {
+            @Override public void run() {
+                // Scans queue up on a slow network; skip results that are no longer on screen.
+                if (!force && r != current && r != popupFor) {
+                    ui.post(new Runnable() {
+                        @Override public void run() { r.stockLoading = false; refreshViewsFor(r); }
+                    });
+                    return;
+                }
+                Resolver.Extra fetched;
+                try {
+                    fetched = app.resolver().fetchExtra(r.productId, force);
+                } catch (RuntimeException e) {
+                    fetched = new Resolver.Extra();
+                    fetched.error = "Lỗi khi lấy tồn kho: " + e;
+                }
+                final Resolver.Extra x = fetched;
+                ui.post(new Runnable() {
+                    @Override public void run() {
+                        if (destroyed) return;
+                        r.stockLoading = false;
+                        if (x.detail != null) r.detail = x.detail;
+                        if (x.stock != null) r.stock = x.stock;
+                        // The store may have changed while this was in flight.
+                        dropStockOfOtherStore(r);
+                        r.stockError = x.error;
+                        refreshViewsFor(r);
+                    }
+                });
+            }
+        });
+    }
+
+    private void dropStockOfOtherStore(LookupResult r) {
+        if (r.stock != null && !r.stock.storeId.equals(app.settings().storeId())) r.stock = null;
+    }
+
+    private void refreshViewsFor(LookupResult r) {
+        if (r == current) renderPanel(r);
+        adapter.notifyDataSetChanged();
+        if (popup != null && popup.isShowing() && popup.result() == r) popup.render();
+    }
+
+    private void openPopup(LookupResult r) {
+        if (popup != null) popup.dismiss();
+        popup = new ScanDetailDialog(this, r, new ScanDetailDialog.Host() {
+            @Override public void loadExtra(LookupResult res, boolean force) { MainActivity.this.loadExtra(res, force); }
+            @Override public void popupClosed(LookupResult res) {
+                if (popupFor == res) popupFor = null;
+                input.requestFocus();
+            }
+        });
+        popupFor = r;
+        popup.show();
+        input.requestFocus();
+        // An old scan opened from the history may never have had its stock fetched (or it failed).
+        if (r.hasProduct() && r.stock == null && !r.stockLoading) loadExtra(r, false);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // The popup does not take key focus (so scanners keep working), so Back arrives here.
+        if (popup != null && popup.isShowing()) {
+            popup.dismiss();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private void updateCounters() {

@@ -44,6 +44,9 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--json")
     a = ap.parse_args()
+    # Windows consoles default to cp1252, which cannot print the Vietnamese summary below.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     ws = openpyxl.load_workbook(a.xlsx, read_only=True).active
     rows = ws.iter_rows(values_only=True)
@@ -77,7 +80,8 @@ def main():
         out.append((pid, t, clean(get("unit")), clean(get("name"))))
 
     out.sort()
-    with gzip.open(a.out, "wt", encoding="utf-8", compresslevel=9) as f:
+    # newline="\n": text mode on Windows would otherwise write "\r\n" line ends.
+    with gzip.open(a.out, "wt", encoding="utf-8", newline="\n", compresslevel=9) as f:
         for row in out:
             f.write("\t".join(str(x) for x in row) + "\n")
     if a.json:

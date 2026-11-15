@@ -21,6 +21,11 @@ public final class Settings {
     private static final String K_EXTRA = "scan_extra";
     private static final String K_SOUND = "sound";
     private static final String K_VIBRATE = "vibrate";
+    private static final String K_CIRCA_KEY = "circa_key";
+    private static final String K_STORE_ID = "store_id";
+    private static final String K_STORE_CODE = "store_code";
+    private static final String K_STORE_NAME = "store_name";
+    private static final String K_CLIENT_ID = "circa_client_id";
 
     private final SharedPreferences sp;
 
@@ -34,9 +39,10 @@ public final class Settings {
         return s.isEmpty() ? DEFAULT_BASE_URL : s;
     }
 
+    /** Buymed check API token (fallback lookup). */
     public String token() { return sp.getString(K_TOKEN, "").trim(); }
     public long customerId() { return sp.getLong(K_CUSTOMER, DEFAULT_CUSTOMER_ID); }
-    /** Call the check API when a QR code cannot be resolved locally. */
+    /** Call online APIs when a QR code cannot be resolved locally, and for stock. */
     public boolean online() { return sp.getBoolean(K_ONLINE, true); }
     /** Infer product from other codes minted in the same batch (same timestamp + machine). */
     public boolean batchInference() { return sp.getBoolean(K_BATCH, false); }
@@ -45,7 +51,26 @@ public final class Settings {
     public boolean sound() { return sp.getBoolean(K_SOUND, true); }
     public boolean vibrate() { return sp.getBoolean(K_VIBRATE, true); }
 
-    public boolean canCallApi() { return online() && !token().isEmpty(); }
+    /** Circa POS API key ("ck_u_..."), sent as a Bearer token to api.v2.circa.vn only. */
+    public String circaKey() { return headerSafe(sp.getString(K_CIRCA_KEY, "")); }
+    public String storeId() { return headerSafe(sp.getString(K_STORE_ID, "")); }
+    public String storeCode() { return sp.getString(K_STORE_CODE, "").trim(); }
+    public String storeName() { return sp.getString(K_STORE_NAME, "").trim(); }
+    public long circaClientId() { return sp.getLong(K_CLIENT_ID, 1); }
+
+    public boolean hasCircaKey() { return !circaKey().isEmpty(); }
+    public boolean hasStore() { return !storeId().isEmpty(); }
+    /** Circa lookups (QR, stock, product detail) need a key and a chosen store. */
+    public boolean canCallCirca() { return online() && hasCircaKey() && hasStore(); }
+    public boolean canCallBuymed() { return online() && !token().isEmpty(); }
+    public boolean canCallApi() { return canCallCirca() || canCallBuymed(); }
+
+    /** "POS0084 · CIRCA KHO BẮC NINH", or "" when no store is chosen. */
+    public String storeLabel() {
+        String name = storeName().isEmpty() ? storeId() : storeName();
+        if (name.isEmpty()) return "";
+        return storeCode().isEmpty() ? name : storeCode() + " · " + name;
+    }
 
     /** Authorization header value; a bare token gets the "Basic " scheme the gateway expects. */
     public String authorizationHeader() {
@@ -55,8 +80,35 @@ public final class Settings {
         return "Basic " + t;
     }
 
+    /**
+     * Keeps only printable ASCII. A key pasted from chat often carries U+00A0 / U+200B / IME
+     * diacritics that trim() leaves in, and Android's HTTP stack throws on such header values.
+     */
+    static String headerSafe(String s) {
+        if (s == null) return "";
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= 0x20 && c <= 0x7E) b.append(c);
+        }
+        return b.toString().trim();
+    }
+
+    /** String field of a settings QR; JSON null or missing -> "" (Android's optString gives "null"). */
+    static String jsonStr(JSONObject o, String key) {
+        return o.isNull(key) ? "" : o.optString(key, "").trim();
+    }
+
+    /** Circa Authorization header; a bare key gets the "Bearer " scheme. */
+    public String circaAuthorizationHeader() {
+        String k = circaKey();
+        if (k.isEmpty()) return k;
+        if (k.indexOf(' ') > 0) return k;
+        return "Bearer " + k;
+    }
+
     public void save(String baseUrl, String token, long customerId, boolean online, boolean batch,
-                     String action, String extra, boolean sound, boolean vibrate) {
+                     String action, String extra, boolean sound, boolean vibrate, String circaKey) {
         sp.edit()
                 .putString(K_BASE, baseUrl)
                 .putString(K_TOKEN, token)
@@ -67,20 +119,31 @@ public final class Settings {
                 .putString(K_EXTRA, extra)
                 .putBoolean(K_SOUND, sound)
                 .putBoolean(K_VIBRATE, vibrate)
+                .putString(K_CIRCA_KEY, headerSafe(circaKey))
+                .apply();
+    }
+
+    public void saveStore(String id, String code, String name, long clientId) {
+        sp.edit()
+                .putString(K_STORE_ID, id == null ? "" : id)
+                .putString(K_STORE_CODE, code == null ? "" : code)
+                .putString(K_STORE_NAME, name == null ? "" : name)
+                .putLong(K_CLIENT_ID, clientId > 0 ? clientId : 1)
                 .apply();
     }
 
     /**
      * Applies a settings QR: "RFIDCFG:" followed by JSON with any of
-     * baseUrl, token, customerId, online, batchInference, scanAction, scanExtra.
-     * Lets an admin configure many PDAs by scanning one code instead of typing a token.
+     * baseUrl, token, customerId, online, batchInference, scanAction, scanExtra,
+     * circaKey, storeId, storeCode, storeName.
+     * Lets an admin configure many PDAs by scanning one code instead of typing a key.
      */
     public int applyConfig(String json) throws JSONException {
         JSONObject o = new JSONObject(json);
         SharedPreferences.Editor e = sp.edit();
         int n = 0;
         if (o.has("baseUrl")) {
-            String base = o.getString("baseUrl").trim();
+            String base = jsonStr(o, "baseUrl");
             if (!base.startsWith("https://")) throw new JSONException("baseUrl phải là https://");
             // A code that points the app at another server must bring its own token; otherwise
             // a stray QR could make the app send the stored Buymed token somewhere else.
@@ -88,12 +151,23 @@ public final class Settings {
             e.putString(K_BASE, base);
             n++;
         }
-        if (o.has("token")) { e.putString(K_TOKEN, o.getString("token")); n++; }
+        if (o.has("token")) { e.putString(K_TOKEN, headerSafe(jsonStr(o, "token"))); n++; }
         if (o.has("customerId")) { e.putLong(K_CUSTOMER, o.getLong("customerId")); n++; }
         if (o.has("online")) { e.putBoolean(K_ONLINE, o.getBoolean("online")); n++; }
         if (o.has("batchInference")) { e.putBoolean(K_BATCH, o.getBoolean("batchInference")); n++; }
-        if (o.has("scanAction")) { e.putString(K_ACTION, o.getString("scanAction")); n++; }
-        if (o.has("scanExtra")) { e.putString(K_EXTRA, o.getString("scanExtra")); n++; }
+        if (o.has("scanAction")) { e.putString(K_ACTION, jsonStr(o, "scanAction")); n++; }
+        if (o.has("scanExtra")) { e.putString(K_EXTRA, jsonStr(o, "scanExtra")); n++; }
+        // The Circa base URL is fixed in the app, so a settings QR can only change the key, not
+        // where it is sent.
+        if (o.has("circaKey")) { e.putString(K_CIRCA_KEY, headerSafe(jsonStr(o, "circaKey"))); n++; }
+        if (o.has("storeId")) {
+            e.putString(K_STORE_ID, headerSafe(jsonStr(o, "storeId")));
+            e.putString(K_STORE_CODE, jsonStr(o, "storeCode"));
+            e.putString(K_STORE_NAME, jsonStr(o, "storeName"));
+            // Never keep the client of a previously chosen store with a new store.
+            e.putLong(K_CLIENT_ID, o.isNull("clientId") ? 1 : Math.max(1, o.optLong("clientId", 1)));
+            n++;
+        }
         e.apply();
         return n;
     }

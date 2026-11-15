@@ -1,9 +1,12 @@
 # RFID Tem Check (Android / PDA)
 
-Quét mã QR Buymed → ra ngay loại tem RFID (**TEM THƯỜNG** / **TEM GẬP**) của sản phẩm, tra trong
-dữ liệu local đóng gói sẵn trong app (72.225 sản phẩm từ `rfid_client_san_pham.xlsx`).
+Chọn kho Circa → quét mã QR Buymed → ra ngay loại tem RFID (**TEM THƯỜNG** / **TEM GẬP**) của sản
+phẩm, tra trong dữ liệu local đóng gói sẵn trong app (72.394 sản phẩm từ
+`loai_tem_rfid_global_san_pham.xlsx`, 15/11/2026), kèm tên, product ID, mã QR, lô/HSD và **tồn kho**
+của kho đang chọn. Chạm vào kết quả hoặc một dòng lịch sử để xem **ảnh sản phẩm** và tồn kho theo
+vị trí / lô.
 
-File cài: `dist/rfid-tem-check-1.0.0.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
+File cài: `dist/rfid-tem-check-1.1.0.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
 
 Tài liệu cho dev/agent: [`CLAUDE.md`](CLAUDE.md), [`docs/HANDOFF.md`](docs/HANDOFF.md), [`docs/API.md`](docs/API.md).
 
@@ -27,10 +30,14 @@ sản phẩm nào. App giảm số lần gọi API theo thứ tự sau (cách nh
 3. **Suy ra theo lô in** (tùy chọn, mặc định TẮT): các mã sinh cùng một lần gọi có cùng 13 số đầu và
    cùng machineCode (ví dụ `1757563200000MC011/012/013` trong tài liệu API), nên biết một mã là suy ra
    được cả lô. Đây là giả định, cần xác nhận với đội QR trước khi bật.
-4. **Gọi API check** (chỉ khi 3 cách trên đều không ra) → lưu cache → lần sau offline.
+4. **Hỏi Circa POS** (`/v1/pos/{kho}/qr/{mã}`, ~0,1–0,3 s, cần khóa API Circa + đã chọn kho) → ra
+   product_id, SKU, lô, HSD → lưu cache → lần sau offline. Loại tem vẫn lấy từ dữ liệu local.
+5. **Dự phòng: API check Buymed** (chỉ khi Circa không tra được và có token Buymed) → lưu cache.
+   Khi dùng đường này, app hiển thị `rfidTagType` của API Buymed (vì cấu hình theo từng customer)
+   và cảnh báo nếu dữ liệu local ghi khác.
 
-Khi phải gọi API, app hiển thị `rfidTagType` của API (vì Circa cấu hình theo từng customer) và cảnh
-báo nếu dữ liệu local ghi khác, để bạn biết cần cập nhật file dữ liệu.
+**Tồn kho** luôn là số liệu sống nên được hỏi Circa sau khi đã hiện loại tem (không làm chậm việc
+quét); quét liên tiếp nhiều thùng cùng sản phẩm trong 60 giây thì dùng lại kết quả vừa hỏi.
 
 ### Hướng xử lý triệt để (đề xuất cho backend)
 
@@ -45,13 +52,13 @@ báo nếu dữ liệu local ghi khác, để bạn biết cần cập nhật fi
 
 ## 2. Cài lên PDA
 
-**Cách 1 — copy file:** chép `rfid-tem-check-1.0.0.apk` vào PDA (USB / Drive / Zalo), mở file, cho
+**Cách 1 — copy file:** chép `rfid-tem-check-1.1.0.apk` vào PDA (USB / Drive / Zalo), mở file, cho
 phép "Cài ứng dụng không rõ nguồn gốc" khi máy hỏi.
 
 **Cách 2 — adb:**
 
 ```bash
-adb install -r dist/rfid-tem-check-1.0.0.apk
+adb install -r dist/rfid-tem-check-1.1.0.apk
 ```
 
 Cập nhật bản mới: cài đè, giữ nguyên dữ liệu và cài đặt (vì cùng khóa ký `signing/rfidtag-release.jks`
@@ -63,25 +70,44 @@ trước khi build, nếu không bản build mới sẽ không cài đè đượ
 
 ## 3. Cấu hình lần đầu
 
-Mở ⚙ (Cài đặt):
+1. Nạp **khóa API Circa POS** (`ck_u_…`): quét QR cài đặt (dưới đây) hoặc mở ⚙ → *Khóa API Circa*.
+2. App tự mở màn hình **Chọn kho** (danh sách kho trên Circa POS, tìm theo tên/mã POS, gõ không dấu
+   được). Đổi kho bất cứ lúc nào: chạm dòng **Kho: …** ở đầu màn hình.
+3. Quét.
 
-| Mục | Mặc định | Ghi chú |
+| Mục (⚙ Cài đặt) | Mặc định | Ghi chú |
 |---|---|---|
-| Gọi API check khi không tra được offline | bật | tắt = chỉ offline |
-| API base URL | `https://open-apis.buymed.com` | staging: `https://open-apis.stg.buymed.tech` |
-| Authorization | trống | dán chuỗi `Basic ...` từ tài liệu API |
-| customerId | `32145` | |
+| Khóa API Circa | trống | chỉ gửi tới `api.v2.circa.vn` |
+| Kho | chưa chọn | nút *Chọn kho* |
+| Tra cứu online | bật | tắt = chỉ offline (không tra mã mới, không xem tồn kho) |
+| API Buymed: base URL | `https://open-apis.buymed.com` | dự phòng; staging: `https://open-apis.stg.buymed.tech` |
+| API Buymed: Authorization | trống | dán chuỗi `Basic ...`; để trống nếu chỉ dùng Circa |
+| customerId | `32145` | dùng cho API Buymed |
 | Suy ra theo lô in | tắt | xem mục 1 |
 
-**Cấu hình nhiều máy bằng 1 mã QR:** tạo QR có nội dung dạng sau (bằng bất kỳ công cụ tạo QR nào),
-rồi quét bằng app trên từng PDA:
+**Cấu hình nhiều máy bằng 1 mã QR:** mở `tools/config_qr.html` bằng trình duyệt trên máy tính (chạy
+offline, không gửi khóa đi đâu), dán khóa Circa (và token Buymed nếu muốn dự phòng), bấm **Tạo mã
+QR**, rồi quét mã trên màn hình bằng app trên từng PDA. Cũng có thể tự tạo QR có nội dung dạng:
 
 ```
-RFIDCFG:{"baseUrl":"https://open-apis.buymed.com","token":"Basic xxxx","customerId":32145}
+RFIDCFG:{"circaKey":"ck_u_xxxx"}
+RFIDCFG:{"circaKey":"ck_u_xxxx","baseUrl":"https://open-apis.buymed.com","token":"Basic xxxx","customerId":32145}
 ```
 
-Mã này chứa token, chỉ in ra khi cần và hủy sau khi dùng. QR đổi `baseUrl` mà không kèm `token`
-sẽ tự xóa token đang lưu, để một mã QR lạ không lừa app gửi token sang server khác.
+Mã này chứa khóa API, chỉ hiện/in ra khi cần và hủy sau khi dùng. Địa chỉ Circa cố định trong app,
+QR chỉ đổi được khóa. QR đổi `baseUrl` Buymed mà không kèm `token` sẽ tự xóa token đang lưu, để một
+mã QR lạ không lừa app gửi token sang server khác. Khóa `ck_u_…` là khóa cá nhân (gắn tài khoản
+người tạo); nếu có tài khoản dịch vụ thì nên đổi sang.
+
+### Màn hình quét
+
+* Thẻ màu: **TEM THƯỜNG** (xanh lá) / **TEM GẬP** (cam) + *Dán tem trên: HỘP*.
+* Khung trắng bên dưới: tên, product ID, lô, HSD, mã QR, **Tồn kho: 3.312 viên = 3 hộp** (đổi theo
+  đơn vị dán tem), nguồn tra cứu, cảnh báo. Chạm vào để mở popup.
+* Lịch sử (200 lần quét gần nhất, mất khi thoát app): chạm một dòng để mở lại popup của lần quét đó.
+* Popup: ảnh sản phẩm (chạm để xem ảnh tiếp theo), quy cách, SKU, lô/HSD, đơn vị trên QR, đơn vị dán
+  tem, thời điểm và kho lúc quét, tồn kho theo vị trí và lô (nút **LÀM MỚI**). Đang mở popup mà quét
+  mã mới thì popup tự đóng và tra mã mới.
 
 ### Máy quét của PDA
 
@@ -111,7 +137,7 @@ pip install openpyxl
 ```
 
 ```bash
-python3 tools/xlsx_to_tsv.py rfid_client_san_pham.xlsx products.tsv.gz
+python3 tools/xlsx_to_tsv.py loai_tem_rfid_global_san_pham.xlsx products.tsv.gz
 ```
 
 **Đổi dữ liệu đóng gói sẵn trong APK:** xuất ra `app/src/main/assets/products.dat`, sửa
@@ -167,18 +193,23 @@ Test logic (parse QR, đọc Excel, đọc phản hồi API):
 ```
 app/src/main/java/com/buymed/rfidtag/
   MainActivity.java       màn hình quét: nhận wedge / broadcast / camera, hiển thị, lịch sử
-  Resolver.java           luồng tra: product_id → cache mã → cache lô → API
+  ScanDetailDialog.java   popup chi tiết một lần quét: ảnh, thông tin, tồn kho theo vị trí/lô
+  StoreActivity.java      chọn kho Circa
+  Resolver.java           luồng tra: product_id → cache mã → cache lô → Circa → Buymed; tồn kho
+  CircaClient.java        Circa POS API: kho, mã QR → sản phẩm, tồn kho, chi tiết sản phẩm
+  ImageLoader.java        tải ảnh sản phẩm (thu nhỏ, cache RAM)
   QrParser.java           tách mã QR / product_id từ nội dung quét
   ProductRepository.java  bảng product → tem trong RAM (asset hoặc file đã nhập)
   ProductStore.java       đọc/ghi định dạng TSV gzip
   TableImporter.java      nhập CSV/TSV/XLSX
   DataImporter.java       chọn định dạng file + nhập JSON
-  ScanCache.java          SQLite: mã QR → product_id, lô in → product_id
-  ApiClient.java          POST /api/v1/circa/rfid-qr/check
+  ScanCache.java          SQLite: mã QR → product_id (+ SKU, lô, HSD), lô in → product_id
+  ApiClient.java          POST /api/v1/circa/rfid-qr/check (Buymed, dự phòng)
   Settings*.java          cài đặt
   CameraScanActivity.java quét bằng camera (Camera1 + ZXing core)
 app/src/main/assets/products.dat   dữ liệu đóng gói sẵn (gzip TSV)
 tools/xlsx_to_tsv.py               chuyển Excel → dữ liệu app
+tools/config_qr.html               tạo QR cài đặt (khóa Circa / token Buymed), chạy offline
 build_apk.sh                       build APK không cần Android SDK
 ```
 

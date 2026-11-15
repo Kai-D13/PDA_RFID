@@ -1,4 +1,79 @@
-# API Circa RFID QR — tóm tắt cho dev
+# API cho RFID Tem Check — tóm tắt cho dev
+
+Từ v1.1.0 app dùng **Circa POS API** (mục A) để tra mã QR, tồn kho, ảnh; **API Buymed RFID QR**
+(mục B) chỉ còn là dự phòng khi Circa không tra được mã.
+
+---
+
+# A. Circa POS API (`api.v2.circa.vn`) — nguồn chính từ v1.1.0
+
+Tìm ra từ network capture của `pos.v2.circa.vn/danh-sach-ton-kho` (15/11/2026) và gọi thử bằng
+khóa API thật. Không có tài liệu chính thức; các điểm "lạ" dưới đây đều đã đo trực tiếp.
+
+## Xác thực
+
+| Header | Giá trị |
+|---|---|
+| `Authorization` | `Bearer ck_u_…` — khóa API **cá nhân** (gắn tài khoản người tạo, quyền "Người xem"). Không commit, không đóng gói vào APK |
+| `X-Store-Id` | id kho (UUID) đang chọn |
+| `X-Circa-App` | `pos` |
+| `X-Client-Id` | `client_id` của kho (hiện là `1` = CIRCA) |
+
+Khóa sai/hết hạn → HTTP 401 `{"success":false,"errors":[{"code":"invalid_token","message":"Token sai",…}]}`.
+Envelope chung: `{"success":true,"data":…}` hoặc `{"success":false,"errors":[{code,message,status}]}`.
+
+## Endpoint app dùng (tất cả là GET, chỉ đọc)
+
+| Mục đích | Endpoint | App đọc |
+|---|---|---|
+| Danh sách kho | `/v1/authz/me` | `data.clients[].client_id`, `data.clients[].stores[] {id, code, name}` (33 kho với khóa hiện tại) |
+| Mã QR → sản phẩm | `/v1/pos/{storeId}/qr/{code}` | `product_id, product_name, sku, lot, expired_date, unit_name, image_urls[]` (~100–300 ms) |
+| Tồn kho 1 sản phẩm | `/v1/inventory/admin/stock/search?query=pos_id={storeId},product_ids={id},include_negative_qty=true,&limit=50&page=1` | `list[] {sku, product_id, base_unit, on_hand_qty, available_qty, items[] {location_code, location_name, on_hand_qty, details[] {lot_date, on_hand_qty, available_qty, doc_code}}}` |
+| Chi tiết sản phẩm | `/v1/pos/{storeId}/product/{id}` | `name, volumes, registration_number, image_urls[], retail_units[] {unit, convert_rate, base_unit, is_rfid_unit}` |
+
+`code` là phần mã sau dấu `/` cuối của QR (`1764138802830C35`), app URL-encode trước khi gọi.
+Tham số `query` app URL-encode cả cụm (`pos_id%3D…%2Cproduct_ids%3D…`); server nhận như bản không encode.
+
+## Điểm bất thường (đã kiểm chứng 15/11/2026)
+
+- Lọc tồn kho theo `product_id=` **bị bỏ qua** (trả về sản phẩm khác); `product_ids=` lọc đúng
+  (`product_ids=14` → 0 dòng). `sku=` cũng bị bỏ qua, `sku_code=` lọc đúng. App vẫn lọc lại theo
+  `product_id` khi đọc, phòng khi server bỏ qua bộ lọc.
+- Mã QR không tồn tại → **HTTP 500** `{"code":"UNKNOWN","message":"Hệ thống gặp lỗi…"}`, không phân
+  biệt được với lỗi server thật; app báo cả hai khả năng.
+- Sản phẩm không có → `/product/{id}` trả 404 `NotFoundError`; tồn kho trả `list: []`.
+- `available_qty` ở cấp SKU có thể là 0 trong khi từng lô vẫn có `available_qty` > 0 (hàng ở Kho
+  Inbound). App hiển thị `on_hand_qty` là con số chính.
+- `convert_rate` trong `retail_units` tính theo đơn vị gốc (`base_unit: true`), ví dụ SP 1467:
+  hộp 1104, túi 24, viên 1; `is_rfid_unit` đánh dấu đơn vị dán tem (hộp). App dùng để đổi
+  "3.312 viên = 3 hộp".
+- `pos.v2.circa.vn/thuocsi-warehouse/qrcode?code=…` (POS web dùng để tra QR) cần cookie đăng nhập,
+  khóa API không dùng được (307 → `/login`). Dùng `/v1/pos/{store}/qr/{code}` thay thế.
+- Ảnh sản phẩm ở `https://cdn-gcs.thuocsi.vn/thuocsi-live/images/…` là public (PNG ~160 KB), không
+  cần header.
+
+Ví dụ (rút gọn) `GET /v1/pos/{store}/qr/1764138802830C35`:
+
+```json
+{"success":true,"data":{"product_id":1467,"product_name":"Vita c glucose mekophar (lốc/46 túi/24 viên)",
+ "sku":"CIRCA.MEK-VIT-001","lot":"25055KN","vat":5,"expired_date":"23-08-2027","unit_name":"túi",
+ "retail_unit_detail":{"unit":"túi","convert_rate":24,"is_rfid_unit":false},
+ "image_urls":["https://cdn-gcs.thuocsi.vn/thuocsi-live/images/2024edf13ec8d84db02bd1c818f2b823", "…"]}}
+```
+
+Ví dụ (rút gọn) tồn kho SP 1467 ở kho mặc định của khóa:
+
+```json
+{"success":true,"data":{"list":[{"sku":"CIRCA.MEK-VIT-001","product_id":1467,"base_unit":"viên",
+ "on_hand_qty":3312,"available_qty":0,"seller_code":"CIRCA","items":[{"location_code":"WH-INBOUND",
+ "location_name":"Kho Inbound","on_hand_qty":3312,"details":[
+  {"lot_date":"25074KN-181027","on_hand_qty":1104,"available_qty":1104,"doc_code":"PO000…"}, "…"]}]}],
+ "total":1,"limit":50,"page":1}}
+```
+
+---
+
+# B. API Buymed RFID QR — dự phòng
 
 Nguồn: tài liệu nội bộ "Circa RFID QR API v1" (file HTML, do BA/SE Buymed phát hành). **File gốc
 chứa token production — không commit vào repo này.** Hỏi người dùng nếu cần bản gốc.
@@ -23,7 +98,7 @@ Cài đặt hoặc quét QR `RFIDCFG:{...}`; app tự thêm `Basic ` nếu chu�
 `data` luôn là mảng 1 phần tử. Rẽ nhánh theo `status`/`errorCode`, **không** theo `message`
 (tiếng Việt, có thể đổi câu chữ).
 
-## 1. Check (chỉ đọc) — app đang dùng endpoint này
+## 1. Check (chỉ đọc) — app dùng làm dự phòng khi Circa không tra được mã
 
 `POST /api/v1/circa/rfid-qr/check`
 

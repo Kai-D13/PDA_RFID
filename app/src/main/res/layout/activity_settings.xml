@@ -58,13 +58,48 @@
         <TextView
             style="@style/Label"
             android:layout_marginTop="22dp"
-            android:text="TRA CỨU ONLINE (KHI MÃ QR CHƯA CÓ TRONG CACHE)" />
+            android:text="CIRCA POS — TRA MÃ QR, TỒN KHO, ẢNH SẢN PHẨM" />
+
+        <TextView
+            android:id="@+id/s_store_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/ink"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/s_choose_store"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Chọn kho" />
+
+        <TextView style="@style/Label" android:text="Khóa API Circa" />
+        <EditText
+            android:id="@+id/s_circa_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:hint="ck_u_… (dán hoặc quét QR cài đặt)"
+            android:inputType="textPassword"
+            android:singleLine="true" />
+
+        <TextView
+            style="@style/Help"
+            android:text="Khóa chỉ được gửi tới api.v2.circa.vn. Dùng để tra mã QR ra sản phẩm, xem tồn kho của kho đã chọn và ảnh sản phẩm. Loại tem vẫn lấy từ dữ liệu local." />
 
         <CheckBox
             android:id="@+id/s_online"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Gọi API check khi không tra được offline" />
+            android:layout_marginTop="10dp"
+            android:text="Tra cứu online (Circa, Buymed) khi mã QR chưa có trong cache, và xem tồn kho" />
+
+        <TextView
+            style="@style/Label"
+            android:layout_marginTop="22dp"
+            android:text="API BUYMED (DỰ PHÒNG KHI CIRCA KHÔNG TRA ĐƯỢC)" />
 
         <TextView style="@style/Label" android:text="API base URL" />
         <EditText
@@ -80,7 +115,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:hint="Basic xxxxx… (dán hoặc quét QR cài đặt)"
+            android:hint="Basic xxxxx… (để trống nếu chỉ dùng Circa)"
             android:inputType="textPassword"
             android:singleLine="true" />
 
@@ -101,7 +136,7 @@
 
         <TextView
             style="@style/Help"
-            android:text="Mã QR in cùng một lần (cùng 13 chữ số đầu và cùng mã máy in) được coi là cùng sản phẩm, nên chỉ cần gọi API cho mã đầu tiên của lô. Giảm mạnh số lần gọi API, nhưng là giả định — chỉ bật khi đã xác nhận với đội QR." />
+            android:text="Mã QR in cùng một lần (cùng 13 chữ số đầu và cùng mã máy in) được coi là cùng sản phẩm, nên chỉ cần gọi API cho mã đầu tiên của lô. Chỉ học được từ API Buymed (Circa không trả mã máy in). Là giả định — chỉ bật khi đã xác nhận với đội QR." />
 
         <TextView
             style="@style/Label"

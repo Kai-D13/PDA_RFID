@@ -18,11 +18,12 @@ import java.util.Locale;
 
 public class SettingsActivity extends Activity {
     static final int REQ_IMPORT = 2;
+    static final int REQ_STORE = 3;
 
     private RfidApp app;
-    private EditText baseUrl, token, customerId, scanAction, scanExtra;
+    private EditText baseUrl, token, customerId, scanAction, scanExtra, circaKey;
     private CheckBox online, batch, sound, vibrate;
-    private TextView dataStatus;
+    private TextView dataStatus, storeStatus;
     private Handler ui;
 
     @Override
@@ -42,6 +43,8 @@ public class SettingsActivity extends Activity {
         sound = (CheckBox) findViewById(R.id.s_sound);
         vibrate = (CheckBox) findViewById(R.id.s_vibrate);
         dataStatus = (TextView) findViewById(R.id.s_data_status);
+        storeStatus = (TextView) findViewById(R.id.s_store_status);
+        circaKey = (EditText) findViewById(R.id.s_circa_key);
 
         Settings s = app.settings();
         baseUrl.setText(s.baseUrl());
@@ -53,9 +56,21 @@ public class SettingsActivity extends Activity {
         batch.setChecked(s.batchInference());
         sound.setChecked(s.sound());
         vibrate.setChecked(s.vibrate());
+        circaKey.setText(s.circaKey());
 
         findViewById(R.id.s_save).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { save(); }
+        });
+        findViewById(R.id.s_choose_store).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (Settings.headerSafe(circaKey.getText().toString()).isEmpty()) {
+                    toast("Nhập khóa API Circa trước, rồi bấm Chọn kho");
+                    return;
+                }
+                // Save the form first so the store list is fetched with the key on screen.
+                if (!persist()) return;
+                startActivityForResult(new Intent(SettingsActivity.this, StoreActivity.class), REQ_STORE);
+            }
         });
         findViewById(R.id.s_import).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { pickFile(); }
@@ -73,6 +88,13 @@ public class SettingsActivity extends Activity {
         refreshStatus();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        String store = app.settings().storeLabel();
+        storeStatus.setText(store.isEmpty() ? "Kho: chưa chọn" : "Kho: " + store);
+    }
+
     private void refreshStatus() {
         ProductRepository repo = app.repo();
         String data = repo.isReady()
@@ -87,18 +109,27 @@ public class SettingsActivity extends Activity {
     }
 
     private void save() {
+        if (!persist()) return;
+        toast("Đã lưu cài đặt");
+        finish();
+    }
+
+    /** Writes the form to Settings; false (with a toast) when a field is invalid. */
+    private boolean persist() {
         long cid;
         try {
             cid = Long.parseLong(customerId.getText().toString().trim());
         } catch (NumberFormatException e) {
             toast("customerId phải là số");
-            return;
+            return false;
         }
+        String oldKey = app.settings().circaKey();
+        String key = circaKey.getText().toString().trim();
         app.settings().save(baseUrl.getText().toString().trim(), token.getText().toString().trim(), cid,
                 online.isChecked(), batch.isChecked(), scanAction.getText().toString().trim(),
-                scanExtra.getText().toString().trim(), sound.isChecked(), vibrate.isChecked());
-        toast("Đã lưu cài đặt");
-        finish();
+                scanExtra.getText().toString().trim(), sound.isChecked(), vibrate.isChecked(), key);
+        if (!key.equals(oldKey)) app.resolver().clearStockCache();
+        return true;
     }
 
     private void pickFile() {
@@ -120,6 +151,11 @@ public class SettingsActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_IMPORT && resultCode == RESULT_OK && data != null && data.getData() != null) {
             runImport(data.getData());
+        }
+        if (requestCode == REQ_STORE) {
+            // The form was saved before leaving; show what is stored now (the key is sanitized on
+            // save), so a later "Lưu" can never write a stale key back.
+            circaKey.setText(app.settings().circaKey());
         }
     }
 

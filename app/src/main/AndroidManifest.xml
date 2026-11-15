@@ -36,6 +36,13 @@
             android:windowSoftInputMode="stateHidden|adjustResize" />
 
         <activity
+            android:name=".StoreActivity"
+            android:exported="false"
+            android:label="Chọn kho"
+            android:theme="@style/SettingsTheme"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
+
+        <activity
             android:name=".CameraScanActivity"
             android:exported="false"
             android:screenOrientation="portrait"

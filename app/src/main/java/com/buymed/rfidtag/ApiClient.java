@@ -78,6 +78,11 @@ public final class ApiClient {
 
     /** Turns a transport failure into a message a warehouse user can act on. */
     static void describeFailure(IOException e, String host, Response r) {
+        describeFailure(e, host, "API", r);
+    }
+
+    /** Same, naming the service ("API", "Circa") so the user can tell which one failed. */
+    static void describeFailure(IOException e, String host, String service, Response r) {
         r.ok = false;
         r.networkError = r.http == 0;
         if (e instanceof UnknownHostException) {
@@ -86,7 +91,7 @@ public final class ApiClient {
                     + ". Kiểm tra Wi-Fi / 4G rồi quét lại.";
         } else if (e instanceof SocketTimeoutException) {
             r.errorCode = "TIMEOUT";
-            r.message = "API không phản hồi kịp (mạng yếu hoặc máy chủ chậm). Quét lại sau.";
+            r.message = service + " không phản hồi kịp (mạng yếu hoặc máy chủ chậm). Quét lại sau.";
         } else if (e instanceof ConnectException) {
             r.errorCode = "CONNECT";
             r.message = "Không kết nối được tới " + host
@@ -97,7 +102,7 @@ public final class ApiClient {
                     + ". Kiểm tra ngày giờ của PDA, hoặc Wi-Fi đang đòi đăng nhập.";
         } else {
             r.errorCode = "NETWORK";
-            r.message = "Không gọi được API: " + e.getMessage();
+            r.message = "Không gọi được " + service + ": " + e.getMessage();
         }
     }
 
@@ -146,7 +151,7 @@ public final class ApiClient {
         return s == null || s.isEmpty() || "null".equals(s) ? null : s;
     }
 
-    private static String readAll(InputStream in) throws IOException {
+    static String readAll(InputStream in) throws IOException {
         ByteArrayOutputStream b = new ByteArrayOutputStream();
         byte[] buf = new byte[8192];
         int n;

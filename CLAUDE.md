@@ -35,8 +35,9 @@ những gì đã/chưa kiểm chứng và backlog. Tóm tắt API ở `docs/API.
 # (.github/workflows/build.yml, mỗi push/PR vào main); chưa thử trên Windows / Android Studio
 ./gradlew assembleRelease            # Windows: .\gradlew.bat assembleRelease
 
-# Test logic (JUnit4): QrParser, ProductStore, TableImporter (CSV/XLSX), ApiClient.parse
-./gradlew test -Prfid.xlsx=/path/rfid_client_san_pham.xlsx
+# Test logic (JUnit4): QrParser, ProductStore, TableImporter (CSV/XLSX), ApiClient.parse, CircaClient
+# (file Excel hiện tại: loai_tem_rfid_global_san_pham.xlsx; test so từng SP với assets/products.dat)
+./gradlew test -Prfid.xlsx=/path/loai_tem_rfid_global_san_pham.xlsx
 ```
 
 Không có Gradle/SDK thì chạy test thủ công như mục "Test" trong `docs/HANDOFF.md`.

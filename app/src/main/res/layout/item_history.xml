@@ -1,31 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- One past scan. Bigger than v1.0 (operators found it hard to read); tap opens the detail popup. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#FFFFFF"
+    android:background="@drawable/bg_row"
     android:gravity="center_vertical"
+    android:minHeight="64dp"
     android:orientation="horizontal"
-    android:paddingBottom="6dp"
+    android:paddingBottom="10dp"
     android:paddingLeft="10dp"
-    android:paddingRight="10dp"
-    android:paddingTop="6dp">
+    android:paddingRight="6dp"
+    android:paddingTop="10dp">
 
     <TextView
         android:id="@+id/h_tag"
-        android:layout_width="76dp"
+        android:layout_width="84dp"
         android:layout_height="wrap_content"
+        android:background="@drawable/bg_chip"
         android:gravity="center"
-        android:paddingBottom="4dp"
-        android:paddingTop="4dp"
-        android:singleLine="true"
+        android:maxLines="2"
+        android:paddingBottom="6dp"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"
+        android:paddingTop="6dp"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="10dp"
+        android:layout_marginLeft="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -34,17 +39,38 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
-            android:singleLine="true"
-            android:textColor="#131C22"
-            android:textSize="13sp" />
+            android:maxLines="2"
+            android:textColor="@color/ink"
+            android:textSize="15sp" />
 
         <TextView
             android:id="@+id/h_sub"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="#75858D"
-            android:textSize="11sp" />
+            android:textColor="@color/ink_faint"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/h_stock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/ink_soft"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingLeft="6dp"
+        android:paddingRight="4dp"
+        android:text="›"
+        android:textColor="@color/ink_faint"
+        android:textSize="24sp" />
 </LinearLayout>

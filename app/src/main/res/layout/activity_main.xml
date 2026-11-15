@@ -5,59 +5,88 @@
     android:background="@color/ground"
     android:orientation="vertical">
 
+    <!-- Header: app name + data, network badge, settings; then the selected store. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/bar"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:paddingBottom="8dp"
-        android:paddingLeft="14dp"
+        android:paddingLeft="16dp"
         android:paddingRight="8dp"
-        android:paddingTop="8dp">
+        android:paddingTop="10dp">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/app_name"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/data_info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:textColor="@color/bar_text_soft"
+                    android:textSize="12.5sp" />
+            </LinearLayout>
 
             <TextView
+                android:id="@+id/mode_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/app_name"
+                android:background="@drawable/bg_chip"
+                android:paddingBottom="5dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:paddingTop="5dp"
                 android:textColor="#FFFFFF"
-                android:textSize="18sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/data_info"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:textColor="#B8C9D0"
-                android:textSize="12sp" />
+                android:id="@+id/btn_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginLeft="4dp"
+                android:background="@drawable/bg_store"
+                android:contentDescription="Cài đặt"
+                android:gravity="center"
+                android:text="⚙"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp" />
         </LinearLayout>
 
         <TextView
-            android:id="@+id/mode_badge"
-            android:layout_width="wrap_content"
+            android:id="@+id/store_bar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingBottom="3dp"
-            android:paddingLeft="7dp"
-            android:paddingRight="7dp"
-            android:paddingTop="3dp"
+            android:layout_marginRight="8dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_store"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:minHeight="40dp"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:singleLine="true"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/btn_settings"
-            style="@style/TopButton"
-            android:background="@android:color/transparent"
-            android:text="⚙"
-            android:textSize="22sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -65,9 +94,9 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
-        android:paddingTop="10dp">
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="12dp">
 
         <EditText
             android:id="@+id/input"
@@ -75,12 +104,14 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:background="@drawable/bg_input"
-            android:hint="Quét QR hoặc nhập product ID"
+            android:hint="Quét QR hoặc nhập mã"
             android:imeOptions="actionGo|flagNoExtractUi"
             android:inputType="textNoSuggestions|textVisiblePassword"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
             android:singleLine="true"
+            android:textColor="#111827"
+            android:textColorHint="@color/ink_faint"
             android:textSize="15sp" />
 
         <TextView
@@ -99,18 +130,22 @@
             android:text="CAM" />
     </LinearLayout>
 
+    <!-- Tag type: smaller than v1.0 so the product and stock fit above the history. -->
     <LinearLayout
         android:id="@+id/result_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="10dp"
-        android:layout_marginRight="10dp"
-        android:layout_marginTop="10dp"
+        android:layout_marginLeft="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginTop="12dp"
         android:background="@drawable/bg_card"
         android:gravity="center"
-        android:minHeight="130dp"
+        android:minHeight="92dp"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:paddingBottom="14dp"
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:paddingTop="14dp">
 
         <TextView
             android:id="@+id/result_tag"
@@ -118,7 +153,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:textColor="#FFFFFF"
-            android:textSize="40sp"
+            android:textSize="30sp"
             android:textStyle="bold" />
 
         <TextView
@@ -127,68 +162,103 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:gravity="center"
-            android:textColor="#E6FFFFFF"
-            android:textSize="15sp" />
+            android:textColor="#F2FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Last scan; tap for images and stock detail. -->
     <LinearLayout
+        android:id="@+id/product_panel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="10dp"
-        android:layout_marginRight="10dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_panel"
+        android:layout_marginLeft="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_row"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:padding="12dp"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/product_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="2"
             android:textColor="@color/ink"
-            android:textSize="16sp"
+            android:textSize="16.5sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/product_meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:textColor="@color/ink_soft"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/code_meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:ellipsize="end"
             android:fontFamily="monospace"
+            android:singleLine="true"
             android:textColor="@color/ink_soft"
-            android:textSize="12sp" />
+            android:textSize="13.5sp" />
+
+        <TextView
+            android:id="@+id/stock_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/ink"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/source_meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:textColor="@color/ink_faint"
-            android:textSize="12sp" />
+            android:textSize="12.5sp" />
 
         <TextView
             android:id="@+id/warn_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_warn"
+            android:paddingBottom="6dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="6dp"
             android:textColor="@color/warn"
             android:textSize="13sp"
             android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/more_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="right"
+            android:text="Chạm để xem ảnh và tồn kho ›"
+            android:textColor="@color/accent"
+            android:textSize="13sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
+        android:minHeight="44dp"
         android:orientation="horizontal"
-        android:paddingLeft="12dp"
-        android:paddingRight="6dp"
-        android:paddingTop="6dp">
+        android:paddingLeft="14dp"
+        android:paddingRight="6dp">
 
         <TextView
             android:id="@+id/counters"
@@ -196,19 +266,20 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textColor="@color/ink_soft"
-            android:textSize="12sp"
+            android:textSize="13.5sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/btn_clear"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_button_ghost"
             android:gravity="center"
             android:paddingLeft="10dp"
             android:paddingRight="10dp"
             android:text="XÓA LỊCH SỬ"
-            android:textColor="#1A5E7A"
-            android:textSize="12sp"
+            android:textColor="@color/accent"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -217,7 +288,12 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:divider="#DBDFDA"
-        android:dividerHeight="1dp"
-        android:focusable="false" />
+        android:clipToPadding="false"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="8dp"
+        android:focusable="false"
+        android:listSelector="@android:color/transparent"
+        android:paddingBottom="12dp"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp" />
 </LinearLayout>

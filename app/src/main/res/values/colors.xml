@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ground">#F3F5F4</color>
-    <color name="ink">#131C22</color>
-    <color name="ink_soft">#4A5A63</color>
-    <color name="ink_faint">#75858D</color>
-    <color name="bar">#12313F</color>
-    <color name="warn">#B36A12</color>
+    <color name="ground">#F3F5F8</color>
+    <color name="ink">#1F2937</color>
+    <color name="ink_soft">#4B5563</color>
+    <color name="ink_faint">#6B7280</color>
+    <color name="bar">#1F5FA8</color>
+    <color name="bar_dark">#174F8C</color>
+    <color name="bar_text_soft">#DCE7F4</color>
+    <color name="accent">#1F6FC5</color>
+    <color name="line">#E3E8EF</color>
+    <color name="warn">#B45309</color>
+    <color name="bad">#B3261E</color>
+    <color name="ok">#187A34</color>
 </resources>
