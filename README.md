@@ -6,7 +6,7 @@ phẩm, tra trong dữ liệu local đóng gói sẵn trong app (72.394 sản ph
 của kho đang chọn. Chạm vào kết quả hoặc một dòng lịch sử để xem **ảnh sản phẩm** và tồn kho theo
 vị trí / lô.
 
-File cài: `dist/rfid-tem-check-1.1.0.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
+File cài: `dist/rfid-tem-check-1.1.1.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
 
 Tài liệu cho dev/agent: [`CLAUDE.md`](CLAUDE.md), [`docs/HANDOFF.md`](docs/HANDOFF.md), [`docs/API.md`](docs/API.md).
 
@@ -52,13 +52,13 @@ quét); quét liên tiếp nhiều thùng cùng sản phẩm trong 60 giây thì
 
 ## 2. Cài lên PDA
 
-**Cách 1 — copy file:** chép `rfid-tem-check-1.1.0.apk` vào PDA (USB / Drive / Zalo), mở file, cho
+**Cách 1 — copy file:** chép `rfid-tem-check-1.1.1.apk` vào PDA (USB / Drive / Zalo), mở file, cho
 phép "Cài ứng dụng không rõ nguồn gốc" khi máy hỏi.
 
 **Cách 2 — adb:**
 
 ```bash
-adb install -r dist/rfid-tem-check-1.1.0.apk
+adb install -r dist/rfid-tem-check-1.1.1.apk
 ```
 
 Cập nhật bản mới: cài đè, giữ nguyên dữ liệu và cài đặt (vì cùng khóa ký `signing/rfidtag-release.jks`

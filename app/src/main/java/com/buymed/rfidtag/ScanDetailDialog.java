@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
+import android.text.style.TypefaceSpan;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -163,11 +164,13 @@ final class ScanDetailDialog {
         TextView t = new TextView(act);
         SpannableStringBuilder b = new SpannableStringBuilder(label + ":  ");
         b.setSpan(new StyleSpan(Typeface.BOLD), 0, label.length() + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int start = b.length();
         b.append(value);
+        // Monospace only the code itself; on the PDA a monospace label looked like a different row style.
+        if (mono) b.setSpan(new TypefaceSpan("monospace"), start, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         t.setText(b);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
         t.setTextColor(0xFF374151);
-        if (mono) t.setTypeface(Typeface.MONOSPACE);
         t.setPadding(0, dp(3), 0, dp(3));
         info.addView(t);
     }
@@ -216,7 +219,7 @@ final class ScanDetailDialog {
                 for (CircaClient.Lot lot : loc.lots) {
                     if (rows >= MAX_STOCK_ROWS) break;
                     StringBuilder t = new StringBuilder("Lô ").append(lot.lot != null ? lot.lot : "?")
-                            .append(" · ").append(CircaClient.qty(lot.onHand));
+                            .append(" · ").append(CircaClient.qty(lot.onHand)).append(unitName);
                     if (lot.doc != null) t.append(" · ").append(lot.doc);
                     line(t.toString(), 13.5f, false, dp(16));
                     rows++;

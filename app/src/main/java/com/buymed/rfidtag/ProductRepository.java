@@ -24,6 +24,8 @@ public final class ProductRepository {
 
     private volatile Map<Long, Product> map = Collections.emptyMap();
     private volatile String sourceLabel = "";
+    /** Same as {@link #sourceLabel} without "Dữ liệu", for the one-line header of the scan screen. */
+    private volatile String shortSourceLabel = "";
     private volatile String loadError;
     private volatile CountDownLatch ready = new CountDownLatch(1);
 
@@ -41,9 +43,11 @@ public final class ProductRepository {
                 InputStream in = new FileInputStream(f);
                 map = ProductStore.read(in);
                 sourceLabel = "Dữ liệu nhập " + DateFmt.dateTime(f.lastModified());
+                shortSourceLabel = "nhập " + DateFmt.shortDateTime(f.lastModified());
             } else {
                 map = ProductStore.read(ctx.getAssets().open(ASSET));
                 sourceLabel = "Dữ liệu gốc " + ctx.getString(R.string.builtin_data_date);
+                shortSourceLabel = "gốc " + ctx.getString(R.string.builtin_data_date);
             }
             loadError = null;
         } catch (IOException e) {
@@ -66,6 +70,7 @@ public final class ProductRepository {
     public Product get(long id) { return map.get(id); }
     public int size() { return map.size(); }
     public String sourceLabel() { return sourceLabel; }
+    public String shortSourceLabel() { return shortSourceLabel; }
     public String loadError() { return loadError; }
 
     /** Saves a freshly imported table to internal storage and swaps it in. */
@@ -81,6 +86,7 @@ public final class ProductRepository {
         }
         map = products;
         sourceLabel = "Dữ liệu nhập " + DateFmt.dateTime(target.lastModified());
+        shortSourceLabel = "nhập " + DateFmt.shortDateTime(target.lastModified());
         loadError = null;
     }
 

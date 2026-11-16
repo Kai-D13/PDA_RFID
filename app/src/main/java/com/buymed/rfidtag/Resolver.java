@@ -106,7 +106,8 @@ public final class Resolver {
                         r.qrUnit = circa.unit;
                         r.images.addAll(circa.images);
                         cache.rememberCirca(p.code, circa);
-                        r.source = "Circa (" + q.elapsedMs + " ms) · đã lưu cache";
+                        // The total time is appended where the source is shown; a second figure confused operators.
+                        r.source = "Circa · đã lưu cache";
                     } else {
                         circaError = q.message;
                         // No HTTP answer at all (no Internet, timeout, captive Wi-Fi): Buymed would
@@ -120,7 +121,7 @@ public final class Resolver {
                     if (api.ok) {
                         pid = api.productId;
                         cache.remember(p.code, pid, api.machineCode);
-                        r.source = "API Buymed (" + api.elapsedMs + " ms) · đã lưu cache";
+                        r.source = "API Buymed · đã lưu cache";
                     } else {
                         String b = api.networkError ? api.message
                                 : "API Buymed lỗi " + api.errorCode

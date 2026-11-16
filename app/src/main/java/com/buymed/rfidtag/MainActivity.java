@@ -60,6 +60,8 @@ public class MainActivity extends Activity {
     private TextView dataInfo, modeBadge, storeBar, resultTag, resultSub, productName, productMeta, codeMeta,
             stockMeta, sourceMeta, warnText, moreHint, counters;
     private View resultCard, productPanel;
+    /** History; its header holds the tag card and product panel so everything below the input scrolls. */
+    private ListView list;
     private HistoryAdapter adapter;
     private final ArrayList<LookupResult> history = new ArrayList<LookupResult>();
     private int cntThuong, cntGap, cntOther;
@@ -97,24 +99,28 @@ public class MainActivity extends Activity {
         dataInfo = (TextView) findViewById(R.id.data_info);
         modeBadge = (TextView) findViewById(R.id.mode_badge);
         storeBar = (TextView) findViewById(R.id.store_bar);
-        resultCard = findViewById(R.id.result_card);
-        resultTag = (TextView) findViewById(R.id.result_tag);
-        resultSub = (TextView) findViewById(R.id.result_sub);
-        productPanel = findViewById(R.id.product_panel);
-        productName = (TextView) findViewById(R.id.product_name);
-        productMeta = (TextView) findViewById(R.id.product_meta);
-        codeMeta = (TextView) findViewById(R.id.code_meta);
-        stockMeta = (TextView) findViewById(R.id.stock_meta);
-        sourceMeta = (TextView) findViewById(R.id.source_meta);
-        warnText = (TextView) findViewById(R.id.warn_text);
-        moreHint = (TextView) findViewById(R.id.more_hint);
-        counters = (TextView) findViewById(R.id.counters);
-        ListView list = (ListView) findViewById(R.id.history);
+        list = (ListView) findViewById(R.id.history);
+        // Header views are not children of the list until it lays out: look them up in the header.
+        View header = getLayoutInflater().inflate(R.layout.main_header, list, false);
+        list.addHeaderView(header, null, false);
+        resultCard = header.findViewById(R.id.result_card);
+        resultTag = (TextView) header.findViewById(R.id.result_tag);
+        resultSub = (TextView) header.findViewById(R.id.result_sub);
+        productPanel = header.findViewById(R.id.product_panel);
+        productName = (TextView) header.findViewById(R.id.product_name);
+        productMeta = (TextView) header.findViewById(R.id.product_meta);
+        codeMeta = (TextView) header.findViewById(R.id.code_meta);
+        stockMeta = (TextView) header.findViewById(R.id.stock_meta);
+        sourceMeta = (TextView) header.findViewById(R.id.source_meta);
+        warnText = (TextView) header.findViewById(R.id.warn_text);
+        moreHint = (TextView) header.findViewById(R.id.more_hint);
+        counters = (TextView) header.findViewById(R.id.counters);
         adapter = new HistoryAdapter(this, history);
         list.setAdapter(adapter);
         list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (position >= 0 && position < history.size()) openPopup(history.get(position));
+                int i = position - list.getHeaderViewsCount();
+                if (i >= 0 && i < history.size()) openPopup(history.get(i));
             }
         });
         productPanel.setOnClickListener(new View.OnClickListener() {
@@ -173,8 +179,8 @@ public class MainActivity extends Activity {
         click(R.id.btn_settings, new Runnable() {
             @Override public void run() { startActivity(new Intent(MainActivity.this, SettingsActivity.class)); }
         });
-        click(R.id.btn_clear, new Runnable() {
-            @Override public void run() {
+        header.findViewById(R.id.btn_clear).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
                 history.clear();
                 cntThuong = cntGap = cntOther = 0;
                 adapter.notifyDataSetChanged();
@@ -383,7 +389,7 @@ public class MainActivity extends Activity {
         } else if (repo.loadError() != null) {
             dataInfo.setText(repo.loadError());
         } else {
-            dataInfo.setText(String.format(Locale.US, "%,d", repo.size()).replace(',', '.') + " SP · " + repo.sourceLabel());
+            dataInfo.setText(String.format(Locale.US, "%,d", repo.size()).replace(',', '.') + " SP · " + repo.shortSourceLabel());
         }
         Settings s = app.settings();
         if (s.canCallApi() && !hasNetwork()) {
@@ -427,6 +433,8 @@ public class MainActivity extends Activity {
         setCard(0xFF4B5563, "ĐANG TRA…", text, false);
         // The panel still shows the previous product; do not let a tap open it as if it were this scan.
         current = null;
+        // The operator may have scrolled down the history: bring the tag card back into view.
+        list.setSelection(0);
     }
 
     private void show(LookupResult r) {
@@ -450,6 +458,7 @@ public class MainActivity extends Activity {
         history.add(0, r);
         while (history.size() > MAX_HISTORY) history.remove(history.size() - 1);
         adapter.notifyDataSetChanged();
+        list.setSelection(0);
         updateCounters();
         feedback.play(r, app.settings());
         input.requestFocus();
@@ -571,8 +580,12 @@ public class MainActivity extends Activity {
         popupFor = r;
         popup.show();
         input.requestFocus();
-        // An old scan opened from the history may never have had its stock fetched (or it failed).
-        if (r.hasProduct() && r.stock == null && !r.stockLoading) loadExtra(r, false);
+        // An old scan opened from the history may never have had its stock fetched (or it failed),
+        // or its numbers are hours old (seen on the PDA: opened at 23:22, stock from 20:56).
+        // Not forced: within Resolver.STOCK_TTL_MS the cached numbers are reused without a call.
+        boolean stale = r.stock == null
+                || System.currentTimeMillis() - r.stock.fetchedAt >= Resolver.STOCK_TTL_MS;
+        if (r.hasProduct() && stale && !r.stockLoading) loadExtra(r, false);
     }
 
     @Override

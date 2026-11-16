@@ -7,7 +7,11 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
 
 ## 0. TL;DR
 
-- **v1.1.0 (15/11/2026, chưa thử trên PDA):** luồng mới *mở app → chọn kho Circa → quét*. Tra mã QR
+- **v1.1.1 (16/11/2026):** v1.1.0 **đã chạy trên PDA thật** (Urovo CT48, màn 480×800): chọn kho, tra
+  QR qua Circa, tồn kho, popup + ảnh đều chạy. Sửa lỗi giao diện thấy trên máy: **lịch sử không hiện**
+  (không còn chỗ trên màn nhỏ) → cả vùng dưới ô quét giờ cuộn được; popup tự làm mới tồn kho đã cũ.
+  Bản 1.1.1 **chưa thử trên PDA**. Chi tiết mục 2b.
+- **v1.1.0 (15/11/2026):** luồng mới *mở app → chọn kho Circa → quét*. Tra mã QR
   mới qua **Circa POS API** (`api.v2.circa.vn`, khóa `ck_u_…`), Buymed thành dự phòng; hiện **tồn
   kho** của kho đang chọn; chạm kết quả / dòng lịch sử → popup có **ảnh sản phẩm**, tồn theo vị trí
   và lô; chữ loại tem nhỏ lại (30sp), lịch sử chữ to hơn; dữ liệu mới 72.394 SP. Chi tiết mục 2a, API
@@ -36,8 +40,9 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
   dùng thấy **chậm và ảnh hưởng tiến độ + hạ tầng** → muốn tra **local**. Chi tiết API: `docs/API.md`.
 - Người dùng nhận một file Excel cấu hình tem (`rfid_client_san_pham_1.xlsx`, sheet
   `client_rfid_unit`) làm "database local".
-- Thiết bị: **PDA Android** (chưa rõ hãng/model — nên hỏi người dùng), cài bằng file APK, không qua
-  Google Play.
+- Thiết bị: **PDA Urovo CT48** (Windows nhận tên `CT48` qua USB/MTP; màn 480×800 px, ~320×533 dp;
+  phiên bản Android chưa ghi lại), cài bằng file APK, không qua Google Play. Máy không có `adb` trên
+  laptop; cài bằng cách chép APK vào thư mục `Download` của PDA rồi mở bằng ứng dụng Tệp.
 - Người dùng: Windows, VS Code, repo clone ở `C:\tags_RFID`, giao tiếp tiếng Việt.
 
 ## 2. Hiện trạng (v1.0.0)
@@ -75,8 +80,8 @@ Người dùng chọn: Buymed giữ làm dự phòng; màn hình chọn kho hi�
 | Test JUnit (21), gồm đọc file Excel thật bằng `TableImporter` và so **từng SP** với `products.dat` | ✅ chạy trên Windows bằng JDK 17 portable (mục 7e), sau đợt review |
 | `CircaClient` gọi API thật (kho, QR, tồn kho, chi tiết, khóa sai, khóa có ký tự xuống dòng, mã không tồn tại) | ✅ chạy trên JVM bằng khóa của người dùng, 15/11/2026, sau đợt review |
 | Resource XML (aapt2 compile/link), dex (d8), APK ký v1+v2 bằng khóa release, căn lề 4 byte | ✅ `dist/rfid-tem-check-1.1.0.apk` (SHA-256 `d8c9d69c…57ac1`), build trên Windows (mục 7e) sau đợt review |
-| Chạy trên PDA (giao diện mới, popup, ảnh, chọn kho, quét khi popup đang mở) | ❌ chưa |
-| CI (`./gradlew test assembleRelease`) cho v1.1.0 | ❌ chưa push |
+| Chạy trên PDA (giao diện mới, popup, ảnh, chọn kho) | ✅ 16/11/2026 trên CT48, xem mục 2b. Chưa thử: quét khi popup đang mở, đổi kho khi đang tải tồn |
+| CI (`./gradlew test assembleRelease`) cho v1.1.0 | ✅ run `43734791530` (commit `091c0fa`), bản `-release`, chứng chỉ khớp |
 
 Ghi chú chuyển dữ liệu: `products.dat` tạo bằng chính `tools/xlsx_to_tsv.py` (Python 3.12 embeddable +
 openpyxl 3.1.5 trong `.build-cache/py`, chạy `python -I`). Script được sửa để chạy đúng trên Windows:
@@ -110,6 +115,37 @@ Khóa ký `signing/rfidtag-release.jks` **không có trong repo** (repo public).
 duy nhất; phải chép vào `signing/` trước khi build release, nếu không APK mới sẽ không cài đè được
 lên bản đã cài. Alias `rfidtag`, mật khẩu đang để mặc định trong `app/build.gradle` và `build_apk.sh`
 (xem backlog B5).
+
+### 2b. Thử v1.1.0 trên PDA (16/11/2026) và v1.1.1 (versionCode 4)
+
+Người dùng cài v1.1.0 lên CT48 và chụp màn hình (thư mục `UI_PDA/`, **không commit**: có tên kho, số
+tồn, mã PO). Kết quả trên máy thật:
+- Chọn kho Circa, quét QR thật: mã dạng mới `B51A1B510CC550000000151E` (24 ký tự hex, không theo mẫu
+  timestamp + machine) tra qua Circa trong ~0,6 s → SP 6673, có lô/HSD, tem gập/hộp; mã
+  `1764138802830C35` lần 2 lấy từ cache trong 9 ms. Tồn kho và đổi đơn vị đúng ("166 viên ≈ 1,7 hộp",
+  "2.400 viên ≈ 2,2 hộp"). Popup có ảnh (6 ảnh), quy cách, số đăng ký, tồn theo vị trí và lô.
+- Máy quét đưa được mã vào app (chưa rõ qua wedge hay broadcast).
+
+Lỗi thấy trên ảnh và cách sửa ở v1.1.1:
+- **Lịch sử không hiện:** trên 480×800, thẻ loại tem + khung sản phẩm + bộ đếm chiếm hết màn hình,
+  `ListView` lịch sử (`layout_weight=1`) còn 0 px. Sửa: thẻ loại tem, khung sản phẩm, bộ đếm chuyển
+  thành **header của `ListView`** (`res/layout/main_header.xml`), cả vùng dưới ô quét cuộn được; mỗi
+  lần quét (lúc "ĐANG TRA…" và khi có kết quả) tự cuộn về đầu. Dòng "Chạm để xem ảnh và tồn kho ›"
+  thay bằng dấu `›` bên phải khung (giống dòng lịch sử), thẻ loại tem bớt đệm, để dòng lịch sử đầu
+  tiên lộ ra dưới màn hình.
+- **Popup hiện tồn kho cũ:** mở popup lúc 23:22 vẫn thấy số "cập nhật 20:56". Sửa: mở popup mà tồn
+  cũ hơn `Resolver.STOCK_TTL_MS` (60 s) thì tự lấy lại (không ép, vẫn dùng cache 60 s).
+- Dòng "Nguồn" có hai con số ("Circa (599 ms) · đã lưu cache · 609 ms") → bỏ số ở giữa, chỉ giữ tổng.
+- Popup: nhãn "Mã QR:" bị đổi sang font monospace cùng giá trị → chỉ giá trị dùng monospace
+  (`TypefaceSpan`). Số lượng từng lô thêm đơn vị ("66 viên").
+- Chữ bị cắt: gợi ý ô quét "Quét QR hoặ…" → "Quét mã QR"; dòng dữ liệu trên header "Dữ liệu gốc
+  15/11…" → "gốc 15/11/2026" (`ProductRepository.shortSourceLabel`, màn Cài đặt vẫn ghi đầy đủ).
+
+Đã chạy: biên dịch toàn bộ, quét `invokedynamic` (không có), 21/21 test JUnit; APK
+`dist/rfid-tem-check-1.1.1.apk` build trên Windows (mục 7e), ký v1+v2 khóa release, chứng chỉ khớp
+`2441b374…`, lề 4 byte đúng, SHA-256 `cd23097b…8076`. **Chưa chạy 1.1.1 trên PDA**: cần xem cuộn lịch
+sử, chạm dòng lịch sử (vị trí đã trừ header), nút XÓA LỊCH SỬ, khung sản phẩm, và wedge vẫn gõ vào ô
+quét sau khi cuộn.
 
 ## 3. Vấn đề cốt lõi: QR không chứa product_id
 
@@ -188,7 +224,7 @@ Java thuần, framework Android, không AndroidX. Phụ thuộc duy nhất: `com
 | File | Vai trò |
 |---|---|
 | `RfidApp` | Application; giữ singleton `ProductRepository`, `ScanCache`, `Settings`, `Resolver`; nạp dữ liệu nền khi khởi động |
-| `MainActivity` | Màn hình quét. Nhận input qua keyboard wedge (Enter/Tab/`\n`), broadcast, camera. Bỏ trùng cùng chuỗi trong 800 ms. Header có dòng **Kho** (chạm → chọn kho), thẻ loại tem có màu, khung sản phẩm (chạm → popup), lịch sử 200 dòng gần nhất (chỉ trong RAM, chạm → popup), bộ đếm. Hai executor: `exec` (tra mã) và `net` (tồn kho/chi tiết). Lần đầu có khóa mà chưa chọn kho → tự mở `StoreActivity` |
+| `MainActivity` | Màn hình quét. Nhận input qua keyboard wedge (Enter/Tab/`\n`), broadcast, camera. Bỏ trùng cùng chuỗi trong 800 ms. Header có dòng **Kho** (chạm → chọn kho), thẻ loại tem có màu, khung sản phẩm (chạm → popup), bộ đếm — ba phần này là header của `ListView` lịch sử (`main_header.xml`, từ v1.1.1) nên cuộn cùng lịch sử; lịch sử 200 dòng gần nhất (chỉ trong RAM, chạm → popup; vị trí trừ `getHeaderViewsCount()`). Mỗi lần quét cuộn về đầu. Mở popup mà tồn cũ hơn 60 s thì tự lấy lại. Hai executor: `exec` (tra mã) và `net` (tồn kho/chi tiết). Lần đầu có khóa mà chưa chọn kho → tự mở `StoreActivity` |
 | `ScanDetailDialog` | Popup một lần quét: ảnh (chạm để xem ảnh tiếp), tên, quy cách, ID/SKU/QR/lô/HSD/đơn vị, thời điểm + kho lúc quét, nguồn, cảnh báo, tồn kho theo SKU → vị trí → lô (tối đa 80 dòng), nút LÀM MỚI. Cửa sổ không lấy focus phím (`FLAG_NOT_FOCUSABLE`) nên máy quét wedge vẫn gõ vào màn hình chính; Back do `MainActivity` đóng popup |
 | `StoreActivity` | Chọn kho: `CircaClient.stores` (`/v1/authz/me`), tìm không dấu theo tên/mã POS, lưu id/code/name/client_id; đổi kho thì xóa cache tồn |
 | `CircaClient` | Circa POS API (mục A của `docs/API.md`): `stores`, `qr`, `stock`, `detail`; tách parse khỏi HTTP để test trên JVM; `Auth` thay cho `Settings` để gọi được trên JVM thường; `stockLine` đổi tồn từ đơn vị gốc sang đơn vị dán tem |
@@ -390,8 +426,9 @@ Chưa có test cho: `Resolver` (phụ thuộc `ScanCache`/`Settings` của Andro
 
 ## 10. Rủi ro / lỗi đã biết
 
-- Toàn bộ phần chạy trên Android chưa thử (mục 2). Rủi ro cao nhất: hành vi keyboard wedge của từng
-  model (gửi Enter hai lần, gửi theo ký tự…), broadcast sai action, camera xoay/khung không khớp.
+- Phần lớn đã chạy trên CT48 (mục 2b); chưa thử: camera, nhập file trên máy, quét khi popup mở.
+  Rủi ro khi đổi model PDA: hành vi keyboard wedge (gửi Enter hai lần, gửi theo ký tự…), broadcast
+  sai action, camera xoay/khung không khớp.
 - `MainActivity` khóa executor đơn luồng trong lúc chờ nạp dữ liệu (`waitForData`): lần quét đầu tiên
   đợi đến khi nạp xong. Có thể chấp nhận được, nhưng cần đo trên PDA.
 - Lịch sử và bộ đếm mất khi thoát app.
@@ -411,9 +448,10 @@ Chưa có test cho: `Resolver` (phụ thuộc `ScanCache`/`Settings` của Andro
 ## 11. Backlog đề xuất (theo thứ tự)
 
 **P0 — cần người dùng**
-- A0. Cài `dist/rfid-tem-check-1.1.0.apk` (cài đè 1.0.x), quét QR cài đặt có khóa Circa → chọn kho →
-  quét mã thật: kiểm tra loại tem, tồn kho, popup + ảnh, chạm dòng lịch sử, LÀM MỚI, đổi kho, quét
-  mã mới khi popup đang mở (wedge và broadcast). Chụp màn hình gửi lại để chỉnh giao diện.
+- A0. ~~Cài 1.1.0 lên PDA, chọn kho, quét mã thật, popup + ảnh~~ — **xong 16/11/2026** (mục 2b).
+  Còn lại với 1.1.1 (`dist/rfid-tem-check-1.1.1.apk`, cài đè): cuộn lịch sử, chạm dòng lịch sử, XÓA
+  LỊCH SỬ, LÀM MỚI, đổi kho, quét mã mới khi popup đang mở và sau khi đã cuộn xuống (wedge và
+  broadcast). Ghi lại phiên bản Android của CT48 (Cài đặt → Thông tin điện thoại).
 - A1. Người dùng cài APK lên PDA, cấu hình token, thử: quét wedge/broadcast/camera, tra
   `1101363`, tra mã QR thật online rồi offline lần 2, nhập file dữ liệu. Thu thập: model PDA, phiên
   bản Android, ảnh màn hình lỗi.

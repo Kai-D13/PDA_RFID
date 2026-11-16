@@ -11,6 +11,10 @@ final class DateFmt {
         return new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US).format(new Date(ms));
     }
 
+    static String shortDateTime(long ms) {
+        return new SimpleDateFormat("dd/MM HH:mm", Locale.US).format(new Date(ms));
+    }
+
     static String time(long ms) {
         return new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date(ms));
     }
