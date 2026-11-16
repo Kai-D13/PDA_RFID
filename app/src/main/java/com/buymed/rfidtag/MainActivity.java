@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
     private EditText input;
     private TextView dataInfo, modeBadge, storeBar, resultTag, resultSub, productName, idQr, lotLine, skuLine,
             stockMeta, nwMeta, warnText, moreHint, counters;
-    private View resultCard, productPanel;
+    private View resultCard, productPanel, stockBox;
     /** History; its header holds the tag card and product panel so everything below the input scrolls. */
     private ListView list;
     private HistoryAdapter adapter;
@@ -113,6 +113,7 @@ public class MainActivity extends Activity {
         resultTag = (TextView) header.findViewById(R.id.result_tag);
         resultSub = (TextView) header.findViewById(R.id.result_sub);
         productPanel = header.findViewById(R.id.product_panel);
+        stockBox = header.findViewById(R.id.stock_box);
         productName = (TextView) header.findViewById(R.id.product_name);
         idQr = (TextView) header.findViewById(R.id.id_qr);
         lotLine = (TextView) header.findViewById(R.id.lot_line);
@@ -525,6 +526,9 @@ public class MainActivity extends Activity {
             warnText.setVisibility(View.GONE);
         }
         moreHint.setVisibility(r.hasProduct() ? View.VISIBLE : View.GONE);
+        // No product (lookup error): no stock lines, so no empty tinted box either.
+        boolean anyStock = stockMeta.getVisibility() == View.VISIBLE || nwMeta.getVisibility() == View.VISIBLE;
+        stockBox.setVisibility(anyStock ? View.VISIBLE : View.GONE);
     }
 
     /** Appends "label value" (value darker, monospace for codes); a label stays with its value when wrapping. */

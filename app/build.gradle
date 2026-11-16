@@ -10,8 +10,8 @@ android {
         applicationId 'com.buymed.rfidtag'
         minSdk 21
         targetSdk 34
-        versionCode 5
-        versionName '1.2.0'
+        versionCode 6
+        versionName '1.2.1'
     }
 
     // The release key is NOT in the repo. Put it at signing/rfidtag-release.jks (same key as

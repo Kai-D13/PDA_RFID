@@ -206,6 +206,22 @@ của brief khớp, `epcQuantity == rfidStock`, chưa cần tra từng EPC: 1467
 APK `dist/rfid-tem-check-1.2.0.apk` (có khóa NW, **không commit**) ký khóa release, chứng chỉ khớp.
 **Chưa**: chạy trên PDA (giao diện mới, Tồn NW qua mạng kho).
 
+### 2d. v1.2.1 (versionCode 6, 17/11/2026): tên sản phẩm bị cắt
+
+Ảnh `UI_PDA/Screenshot_20261117-003148.png` (1.2.0 trên CT48): tên 2 dòng "Bao Cao Su Her Feel Siêu
+Mỏng 003 Medevice 3S (H/3c)" bị đẩy xuống và mất nửa dưới dòng 2. Nguyên nhân: tên và dấu `›` (24sp)
+chung một `LinearLayout` ngang với `baselineAligned` mặc định và gravity top → tên bị dịch theo
+baseline của `›`, còn chiều cao hàng không tăng theo. Sửa (`main_header.xml`):
+- Tên một hàng riêng, toàn chiều ngang, tối đa **3 dòng**, `lineSpacingExtra` 2 dp (dấu tiếng Việt).
+- Đường kẻ mảnh ngăn tên với các dòng mã (ID·QR, Lô·HSD, SKU).
+- Tồn POS + Tồn NW trong ô nền nhạt (`bg_image`), dấu `›` căn giữa dọc bên phải ô, hàng đặt
+  `baselineAligned="false"`; ô ẩn khi không có dòng tồn nào (tra lỗi).
+Các hàng ngang khác (lịch sử, header, bộ đếm, đầu popup) dùng `gravity="center_vertical"` nên không
+bị dịch theo baseline.
+
+Đã chạy: biên dịch, 29/29 test, aapt2 link layout mới; APK `dist/rfid-tem-check-1.2.1.apk` (có khóa NW,
+không commit) ký khóa release, chứng chỉ khớp, đã chép vào `Download` của PDA. **Chưa** xem trên PDA.
+
 ## 3. Vấn đề cốt lõi: QR không chứa product_id
 
 `1787548411337B731` = `1787548411337` (epoch ms lúc sinh mã, 13 chữ số) + `B7` (machineCode) +

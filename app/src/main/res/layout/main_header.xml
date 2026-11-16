@@ -39,7 +39,9 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Last scan: name, ID + QR, lot + expiry, SKU, POS stock, NW tag count. Tap for images. -->
+    <!-- Last scan, tap for images. Name on its own full-width row (v1.2.1: next to the bigger chevron,
+         baseline alignment pushed it down and clipped its 2nd line), a hairline, the codes, then both
+         stocks in a tinted box with the chevron centred beside them. -->
     <LinearLayout
         android:id="@+id/product_panel"
         android:layout_width="match_parent"
@@ -49,43 +51,31 @@
         android:orientation="vertical"
         android:paddingBottom="10dp"
         android:paddingLeft="12dp"
-        android:paddingRight="10dp"
-        android:paddingTop="8dp"
+        android:paddingRight="12dp"
+        android:paddingTop="10dp"
         android:visibility="gone">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/product_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="3"
+            android:textColor="@color/ink"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/product_name"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:textColor="@color/ink"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <!-- Chevron like the history rows: the whole panel opens the popup. -->
-            <TextView
-                android:id="@+id/more_hint"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:contentDescription="Xem ảnh và tồn kho"
-                android:paddingLeft="8dp"
-                android:text="›"
-                android:textColor="@color/accent"
-                android:textSize="24sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="8dp"
+            android:background="@color/line" />
 
         <TextView
             android:id="@+id/id_qr"
-            style="@style/PanelLine"
-            android:layout_marginTop="2dp" />
+            style="@style/PanelLine" />
 
         <TextView
             android:id="@+id/lot_line"
@@ -95,14 +85,48 @@
             android:id="@+id/sku_line"
             style="@style/PanelLine" />
 
-        <TextView
-            android:id="@+id/stock_meta"
-            style="@style/PanelStock"
-            android:layout_marginTop="4dp" />
+        <LinearLayout
+            android:id="@+id/stock_box"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_image"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingBottom="6dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="4dp"
+            android:paddingTop="5dp">
 
-        <TextView
-            android:id="@+id/nw_meta"
-            style="@style/PanelStock" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/stock_meta"
+                    style="@style/PanelStock" />
+
+                <TextView
+                    android:id="@+id/nw_meta"
+                    style="@style/PanelStock" />
+            </LinearLayout>
+
+            <!-- The whole panel opens the popup; the chevron only says so. -->
+            <TextView
+                android:id="@+id/more_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="Xem ảnh và tồn kho"
+                android:paddingLeft="8dp"
+                android:paddingRight="6dp"
+                android:text="›"
+                android:textColor="@color/accent"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/warn_text"
