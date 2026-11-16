@@ -178,7 +178,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@color/ink"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -188,6 +188,35 @@
                 android:layout_marginTop="2dp"
                 android:textColor="@color/ink_faint"
                 android:textSize="13sp" />
+
+            <!-- Nextwaves: RFID tags (EPCs) of the product in the NW warehouse of this store. -->
+            <TextView
+                android:id="@+id/d_nw_total"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/ink"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/d_nw_sub"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/ink_faint"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/d_lines_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="TỒN POS THEO VỊ TRÍ / LÔ"
+                android:textColor="@color/ink_soft"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <!-- per SKU / location / lot rows added in code -->
             <LinearLayout

@@ -7,6 +7,12 @@ Tài liệu bàn giao cho agent/dev tiếp nhận. Viết ngày 08/11/2026, ở 
 
 ## 0. TL;DR
 
+- **v1.2.0 (17/11/2026, chưa thử trên PDA):** theo yêu cầu UI của người dùng: hàng quét chỉ còn ô
+  nhập + ABC (bỏ TRA, CAM), thẻ loại tem nhỏ lại, khung sản phẩm xếp *ID·QR → Lô·HSD → SKU → Tồn POS
+  → Tồn NW*, bỏ dòng "Nguồn" ở màn chính và popup. Thêm **"Tồn NW"** = số thẻ EPC còn tồn trên
+  **Nextwaves** (gọi thẳng từ PDA; khóa `nwc_pk_…:nwc_sk_…` **nhúng lúc build** từ file gitignored
+  `BuiltinKeys.java`, nên **APK từ 1.2.0 không đưa lên GitHub**). Đã đối chiếu NW thật: 8/8 SP trong
+  bảng test của brief khớp. Chi tiết mục 2c, API ở `docs/API.md` mục C.
 - **v1.1.1 (16/11/2026):** v1.1.0 **đã chạy trên PDA thật** (Urovo CT48, màn 480×800): chọn kho, tra
   QR qua Circa, tồn kho, popup + ảnh đều chạy. Sửa lỗi giao diện thấy trên máy: **lịch sử không hiện**
   (không còn chỗ trên màn nhỏ) → cả vùng dưới ô quét giờ cuộn được; popup tự làm mới tồn kho đã cũ.
@@ -147,6 +153,59 @@ Lỗi thấy trên ảnh và cách sửa ở v1.1.1:
 sử, chạm dòng lịch sử (vị trí đã trừ header), nút XÓA LỊCH SỬ, khung sản phẩm, và wedge vẫn gõ vào ô
 quét sau khi cuộn.
 
+### 2c. v1.2.0 (versionCode 5, 17/11/2026): gọn giao diện + Tồn NW (Nextwaves)
+
+Yêu cầu người dùng (kèm ảnh `UI_PDA/`), và lựa chọn của họ khi được hỏi:
+- Hàng quét: bỏ **TRA** (máy quét tự gửi Enter; bàn phím mở bằng ABC có phím Go) và **CAM**; chỉ giữ
+  **ABC**, ô và nút cao 40 dp. `CameraScanActivity` vẫn còn trong code + manifest nhưng không có nút
+  mở (muốn bật lại: thêm nút gọi `startActivityForResult` và xử lý `EXTRA_TEXT` như bản 1.1.1).
+- Thẻ loại tem 24sp / dòng "Dán tem trên" 14sp, đệm nhỏ (trước 30sp/17sp).
+- Khung sản phẩm: tên (2 dòng, dấu `›` bên phải) → `ID: … QR: …` → `Lô: … HSD: …` → `SKU: …` →
+  `Tồn POS: …` → `Tồn NW: …`. Nhãn và giá trị nối bằng NBSP để khi xuống dòng không tách nhãn khỏi
+  giá trị; mã QR dạng 24 ký tự hex tự xuống dòng riêng. Vị trí SKU (sau Lô·HSD) do agent chọn —
+  người dùng chỉ nói "thêm SKU".
+- Bỏ dòng "Nguồn: …" ở màn chính và popup (`LookupResult.source` vẫn được tính, chỉ không hiện).
+- "Tồn kho" → **"Tồn POS"** (màn chính, popup, dòng lịch sử "POS … · NW n thẻ").
+- **Tồn NW** = số thẻ EPC còn tồn của sản phẩm trong kho Nextwaves (NW) tương ứng: `NextwavesClient`
+  (thuật toán sổ kho của brief NW, `docs/API.md` mục C), `Resolver.fetchNw` (cache 60 s theo kho NW +
+  SP; SP không có trên NW hỏi lại sau 10 phút), executor riêng `MainActivity.nwNet` để NW chậm (nhiều
+  call, có thể retry 429) không chặn Tồn POS hay lần quét sau. Popup: "Tồn NW: 31 thẻ · 93 cái", dòng
+  phụ "Nextwaves Lumina · cập nhật … · khớp tổng NW" hoặc "Chưa khớp: NW ghi X trên thẻ, đếm sổ kho ra
+  Y", số chưa gắn thẻ; LÀM MỚI làm mới cả POS lẫn NW.
+- Khóa NW: brief yêu cầu chỉ để ở server, nhưng app không có backend → app gọi thẳng NW. Người dùng
+  tạo khóa riêng cho APK và chọn (17/11/2026) **nhúng lúc build, không lên GitHub**:
+  - Khóa nằm trong `app/src/main/java/com/buymed/rfidtag/BuiltinKeys.java` (gitignored):
+    `public final class BuiltinKeys { public static final String NW_KEY = "nwc_pk_…:nwc_sk_…"; }`.
+    `Settings.builtinKey` đọc bằng reflection, nên thiếu file (CI, clone mới) vẫn biên dịch; khi đó
+    không có khóa sẵn. Máy dev mới: xin khóa từ người dùng, tạo lại file này. Bản sao khóa dạng text ở
+    `.build-cache/nw_key.txt` (gitignored) trên máy build hiện tại.
+  - Thứ tự dùng: khóa nhập tay / quét QR (`nwKey` trong `RFIDCFG`, ô trong Cài đặt và
+    `tools/config_qr.html`) → khóa có sẵn trong app. Ô Cài đặt để trống khi dùng khóa có sẵn (không
+    hiện khóa lên màn hình); dòng trạng thái ghi nguồn khóa.
+  - APK build trên máy chứa khóa → `dist/*.apk` đã gitignore từ v1.2.0 (1.0.0–1.1.1 vẫn được theo dõi,
+    không có khóa). Chép APK qua USB. APK từ CI không có khóa (không có `BuiltinKeys`) → dùng QR.
+  - `minifyEnabled false`; nếu bật R8 phải giữ `BuiltinKeys` (chỉ được gọi qua reflection).
+- Kho NW: người dùng chọn **tự khớp theo tên kho Circa** (LUMINA → Lumina, FLORITA → Florita); kho
+  khác nhập UUID trong Cài đặt / QR (`nwWarehouseId`), không có thì hiện "kho này chưa nối kho
+  Nextwaves".
+
+Đã chạy: biên dịch cả khi **có** và **không có** `BuiltinKeys.java`, quét `invokedynamic` (không
+có), **29/29 test** (21 `LogicTest` + 8
+`NextwavesTest`: khớp kho, parse sản phẩm/summary/EPC, thuật toán sổ kho gồm chia đều cho nhiều EPC,
+xuất kho, bán lẻ một phần, kho khác, lật trang, mảng trần, làm tròn; thông báo lỗi 401/429/500/HTML;
+thiếu lớp khóa không crash).
+Test file Excel thật **bị bỏ qua** vì `loai_tem_rfid_global_san_pham.xlsx` không còn trong Downloads
+(dữ liệu đóng gói không đổi từ 1.1.0).
+
+**NW thật, khóa của người dùng (17/11/2026 ~00:15)** — `NextwavesClient` trên JVM, cả 8 dòng bảng test
+của brief khớp, `epcQuantity == rfidStock`, chưa cần tra từng EPC: 1467 Florita 1 thẻ · 1.104 viên;
+1467 Lumina 0; 1890 Florita 10 · 10 viên; 10871 Lumina 31 · 93 cái; 2013079 Lumina 146 · 1.460 cái;
+1066747 Lumina 80 · 800 cái; 93933 Lumina 150 · 150 que; 999999999 không có trên NW. Thêm 6673 Lumina
+(SP quét trên PDA) 1 thẻ · 100 viên. 0,2–0,9 s mỗi SP (từ laptop). Khóa giả → 401 + thông báo.
+
+APK `dist/rfid-tem-check-1.2.0.apk` (có khóa NW, **không commit**) ký khóa release, chứng chỉ khớp.
+**Chưa**: chạy trên PDA (giao diện mới, Tồn NW qua mạng kho).
+
 ## 3. Vấn đề cốt lõi: QR không chứa product_id
 
 `1787548411337B731` = `1787548411337` (epoch ms lúc sinh mã, 13 chữ số) + `B7` (machineCode) +
@@ -224,12 +283,13 @@ Java thuần, framework Android, không AndroidX. Phụ thuộc duy nhất: `com
 | File | Vai trò |
 |---|---|
 | `RfidApp` | Application; giữ singleton `ProductRepository`, `ScanCache`, `Settings`, `Resolver`; nạp dữ liệu nền khi khởi động |
-| `MainActivity` | Màn hình quét. Nhận input qua keyboard wedge (Enter/Tab/`\n`), broadcast, camera. Bỏ trùng cùng chuỗi trong 800 ms. Header có dòng **Kho** (chạm → chọn kho), thẻ loại tem có màu, khung sản phẩm (chạm → popup), bộ đếm — ba phần này là header của `ListView` lịch sử (`main_header.xml`, từ v1.1.1) nên cuộn cùng lịch sử; lịch sử 200 dòng gần nhất (chỉ trong RAM, chạm → popup; vị trí trừ `getHeaderViewsCount()`). Mỗi lần quét cuộn về đầu. Mở popup mà tồn cũ hơn 60 s thì tự lấy lại. Hai executor: `exec` (tra mã) và `net` (tồn kho/chi tiết). Lần đầu có khóa mà chưa chọn kho → tự mở `StoreActivity` |
-| `ScanDetailDialog` | Popup một lần quét: ảnh (chạm để xem ảnh tiếp), tên, quy cách, ID/SKU/QR/lô/HSD/đơn vị, thời điểm + kho lúc quét, nguồn, cảnh báo, tồn kho theo SKU → vị trí → lô (tối đa 80 dòng), nút LÀM MỚI. Cửa sổ không lấy focus phím (`FLAG_NOT_FOCUSABLE`) nên máy quét wedge vẫn gõ vào màn hình chính; Back do `MainActivity` đóng popup |
+| `MainActivity` | Màn hình quét. Nhận input qua keyboard wedge (Enter/Tab/`\n`), broadcast, camera. Bỏ trùng cùng chuỗi trong 800 ms. Header có dòng **Kho** (chạm → chọn kho), thẻ loại tem có màu, khung sản phẩm (chạm → popup), bộ đếm — ba phần này là header của `ListView` lịch sử (`main_header.xml`, từ v1.1.1) nên cuộn cùng lịch sử; lịch sử 200 dòng gần nhất (chỉ trong RAM, chạm → popup; vị trí trừ `getHeaderViewsCount()`). Mỗi lần quét cuộn về đầu. Mở popup mà Tồn POS hoặc Tồn NW cũ hơn 60 s thì tự lấy lại. Ba executor: `exec` (tra mã), `net` (Tồn POS/chi tiết), `nwNet` (Tồn NW). Từ v1.2.0 hàng quét chỉ có ô nhập + ABC. Lần đầu có khóa mà chưa chọn kho → tự mở `StoreActivity` |
+| `ScanDetailDialog` | Popup một lần quét: ảnh (chạm để xem ảnh tiếp), tên, quy cách, ID/SKU/QR/lô/HSD/đơn vị, thời điểm + kho lúc quét, cảnh báo (từ v1.2.0 không còn dòng nguồn), Tồn POS, Tồn NW, tồn POS theo SKU → vị trí → lô (tối đa 80 dòng), nút LÀM MỚI (cả POS lẫn NW). Cửa sổ không lấy focus phím (`FLAG_NOT_FOCUSABLE`) nên máy quét wedge vẫn gõ vào màn hình chính; Back do `MainActivity` đóng popup |
 | `StoreActivity` | Chọn kho: `CircaClient.stores` (`/v1/authz/me`), tìm không dấu theo tên/mã POS, lưu id/code/name/client_id; đổi kho thì xóa cache tồn |
 | `CircaClient` | Circa POS API (mục A của `docs/API.md`): `stores`, `qr`, `stock`, `detail`; tách parse khỏi HTTP để test trên JVM; `Auth` thay cho `Settings` để gọi được trên JVM thường; `stockLine` đổi tồn từ đơn vị gốc sang đơn vị dán tem |
+| `NextwavesClient` | Nextwaves public API (mục C của `docs/API.md`): `product` (Circa id → SP NW), `epcStock` (summary + sổ kho lật trang + tra từng EPC khi lệch, ≤ 200 EPC, 4 luồng), retry 429; `warehouseFor` khớp kho Circa → kho NW theo tên; parse tách khỏi HTTP |
 | `ImageLoader` | Tải ảnh https (tối đa 8 MB), giảm mẫu rồi thu về ~720 px, `LruCache` ≤ 8 MB và ≤ 1/8 heap, 2 luồng, không cache đĩa |
-| `Resolver` | Luồng tra (mục 3) chạy trên executor đơn luồng; `fetchExtra` lấy tồn kho (cache 60 s theo kho + SP) + chi tiết (cache phiên, lỗi thì 10 phút hỏi lại) |
+| `Resolver` | Luồng tra (mục 3) chạy trên executor đơn luồng; `fetchExtra` lấy tồn kho (cache 60 s theo kho + SP) + chi tiết (cache phiên, lỗi thì 10 phút hỏi lại); `fetchNw` đếm thẻ NW (cache 60 s theo kho NW + SP, SP NW cache phiên, 404 hỏi lại sau 10 phút); QR cài đặt và đổi khóa/kho xóa các cache này |
 | `QrParser` | Làm sạch input (ký tự điều khiển, BOM, zero-width, tiền tố AIM `]Q1`), phân loại EMPTY / PRODUCT_ID / QR_CODE / CONFIG; tách timestamp/machine |
 | `ProductRepository` | `HashMap<Long, Product>` trong RAM (ước tính ~15 MB, chưa đo), `CountDownLatch` báo đã nạp xong; thay dữ liệu bằng ghi file tạm rồi rename |
 | `ProductStore` | Đọc/ghi TSV gzip |
@@ -260,10 +320,13 @@ nút `#1F6FC5`, nền `#F3F5F8`; tem thường `#23843A` xanh lá, tem gập `#D
 | `sound`, `vibrate` | true | |
 | `circa_key` | rỗng | khóa Circa POS, gửi `Bearer` tới `CircaClient.BASE_URL` (cố định `https://api.v2.circa.vn`) |
 | `store_id`, `store_code`, `store_name`, `circa_client_id` | rỗng / 1 | kho đang chọn |
+| `nw_key` | rỗng | khóa Nextwaves (v1.2.0), gửi `Bearer` tới `NextwavesClient.BASE_URL` (cố định) |
+| `nw_warehouse_id` | rỗng | UUID kho NW nhập tay; rỗng = khớp theo tên kho Circa (`Settings.nwWarehouseId`) |
 
-`online` từ v1.1.0 điều khiển cả Circa (tra mã + tồn kho) lẫn Buymed.
+`online` từ v1.1.0 điều khiển cả Circa (tra mã + tồn kho) lẫn Buymed, từ v1.2.0 cả Nextwaves.
 
-QR cấu hình: `RFIDCFG:{"circaKey":…,"storeId":…,"storeCode":…,"storeName":…,"baseUrl":…,"token":…,"customerId":…,"online":…,"batchInference":…,"scanAction":…,"scanExtra":…}`.
+QR cấu hình: `RFIDCFG:{"circaKey":…,"nwKey":…,"nwWarehouseId":…,"storeId":…,"storeCode":…,"storeName":…,"baseUrl":…,"token":…,"customerId":…,"online":…,"batchInference":…,"scanAction":…,"scanExtra":…}`
+(`nwWarehouseId` phải là UUID hoặc rỗng, sai thì cả QR bị từ chối).
 An toàn: `baseUrl` phải `https://`; đổi `baseUrl` mà QR không kèm `token` → xóa token đang lưu (để QR
 lạ không làm app gửi token sang server khác).
 
@@ -271,7 +334,8 @@ lạ không làm app gửi token sang server khác).
 khác. `storeId` (kèm `storeCode`/`storeName` tùy chọn) đặt sẵn kho.
 
 Tạo mã: `tools/config_qr.html` — trang HTML một file, chạy offline (thư viện qrcode-generator MIT nhúng
-sẵn, không gọi mạng). Nhập khóa Circa (chính) và/hoặc token Buymed + môi trường + customerId (mục
+sẵn, không gọi mạng). Nhập khóa Circa (chính), khóa Nextwaves (từ v1.2.0, kiểm dạng
+`nwc_pk_…:nwc_sk_…`) và/hoặc token Buymed + môi trường + customerId (mục
 "API Buymed (dự phòng)") → QR `RFIDCFG:{circaKey[,baseUrl,token,customerId]}` (tự thêm `Basic ` cho
 token Buymed). Ô khóa kiểu password; bấm **Xóa** hoặc đóng tab là xóa khóa và mã QR. Không đưa
 `storeId` vào trang: app tự mở màn hình chọn kho sau khi quét.
@@ -399,6 +463,14 @@ javac -encoding UTF-8 -d build/test -cp "$CP:$C/android-34.jar" \
 java -Drfid.xlsx=/path/file.xlsx -cp "build/test:$CP" org.junit.runner.JUnitCore com.buymed.rfidtag.LogicTest
 ```
 
+`NextwavesTest.java` (v1.2.0) — 7 test: khớp kho theo tên, nhãn kho, UUID; parse sản phẩm (có/không
+bọc `data`), summary; thuật toán sổ kho (chia đều, xuất, bán lẻ một phần, kho khác bị bỏ, EPC dạng
+object, lật trang, trang rỗng, mảng trần, làm tròn 3 số); trả lời từng EPC; dòng hiển thị; lỗi HTTP.
+
+Smoke test NW thật (không commit, khóa đọc từ file ngoài repo, không in khóa): gọi
+`NextwavesClient.product/epcStock` cho các SP trong bảng test của brief. 17/11/2026 mới chạy với khóa
+giả (401 đúng thông báo); **chưa chạy với khóa thật**.
+
 Chưa có test cho: `Resolver` (phụ thuộc `ScanCache`/`Settings` của Android), `DataImporter.readJson`,
 `ImageLoader`, toàn bộ UI (popup, chọn kho, quét khi popup đang mở).
 
@@ -423,6 +495,10 @@ Chưa có test cho: `Resolver` (phụ thuộc `ScanCache`/`Settings` của Andro
 | Tồn kho hiện `on_hand_qty`, đổi sang đơn vị dán tem theo `retail_units.convert_rate` | `available_qty` cấp SKU có thể 0 dù lô còn hàng (Kho Inbound) |
 | Popup thay vì màn hình mới, popup không lấy focus phím | Màn hình chính vẫn nhận cả broadcast lẫn wedge khi popup đang mở; không phải tự gom phím trong popup |
 | Ảnh chỉ tải khi mở popup, không cache đĩa | Ảnh PNG ~160 KB/ảnh; người dùng chỉ cần khi chạm vào |
+| Khóa Nextwaves trên PDA, app gọi thẳng NW (v1.2.0) | Brief NW muốn khóa chỉ ở server, nhưng không có backend; người dùng chọn cách giống khóa Circa (17/11/2026). Khóa không trong APK/repo, `allowBackup=false`, địa chỉ NW cố định |
+| Đếm thẻ NW bằng sổ kho thay vì tra từng EPC | 3+ call thay vì 1 call/EPC; tra từng EPC chỉ khi tổng lệch `rfidStock`, tối đa 200 EPC |
+| Kho NW khớp theo tên kho Circa | Người dùng chọn; NW chỉ có 2 kho đã biết (Lumina, Florita); UUID nhập tay cho kho khác |
+| Bỏ TRA, CAM; giữ ABC (v1.2.0) | Người dùng chọn; màn 480×800 cần chỗ cho Tồn POS/NW |
 
 ## 10. Rủi ro / lỗi đã biết
 
@@ -444,12 +520,18 @@ Chưa có test cho: `Resolver` (phụ thuộc `ScanCache`/`Settings` của Andro
 - Quét wedge khi popup đang mở dựa vào `FLAG_NOT_FOCUSABLE` (phím đi xuống cửa sổ màn hình chính)
   — chưa thử trên máy thật; nếu model nào không nhận, đóng popup rồi quét (broadcast không bị ảnh hưởng).
 - Ảnh giải mã ARGB_8888 ~720 px (~2 MB/ảnh trong RAM, cache ≤ 8 MB); chưa đo trên PDA RAM thấp.
+- Khóa Nextwaves nằm trên mọi PDA (SharedPreferences); PDA bị root / mất máy thì lộ khóa → đổi khóa
+  trên NW. Endpoint NW dùng ở đây không có tài liệu chính thức về sổ kho; thuật toán đếm dựa trên
+  brief (đã đối chiếu 7 SP ở Lumina/Florita), có thể sai nếu NW đổi cách ghi sổ.
+- Sản phẩm bán chạy có sổ kho lớn: mỗi 1.000 dòng là 1 call (tối đa 50 trang); tra từng EPC khi lệch
+  có thể tới 200 call. Chưa đo thời gian trên PDA / mạng kho.
 
 ## 11. Backlog đề xuất (theo thứ tự)
 
 **P0 — cần người dùng**
 - A0. ~~Cài 1.1.0 lên PDA, chọn kho, quét mã thật, popup + ảnh~~ — **xong 16/11/2026** (mục 2b).
-  Còn lại với 1.1.1 (`dist/rfid-tem-check-1.1.1.apk`, cài đè): cuộn lịch sử, chạm dòng lịch sử, XÓA
+  Còn lại với 1.2.0 (`dist/rfid-tem-check-1.2.0.apk` trên máy build, cài đè): giao diện gọn mới,
+  Tồn NW ở kho Lumina/Florita (mạng kho, thời gian đếm), kho khác hiện "chưa nối kho Nextwaves"; cuộn lịch sử, chạm dòng lịch sử, XÓA
   LỊCH SỬ, LÀM MỚI, đổi kho, quét mã mới khi popup đang mở và sau khi đã cuộn xuống (wedge và
   broadcast). Ghi lại phiên bản Android của CT48 (Cài đặt → Thông tin điện thoại).
 - A1. Người dùng cài APK lên PDA, cấu hình token, thử: quét wedge/broadcast/camera, tra

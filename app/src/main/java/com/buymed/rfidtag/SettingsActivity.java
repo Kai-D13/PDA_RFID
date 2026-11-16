@@ -21,9 +21,9 @@ public class SettingsActivity extends Activity {
     static final int REQ_STORE = 3;
 
     private RfidApp app;
-    private EditText baseUrl, token, customerId, scanAction, scanExtra, circaKey;
+    private EditText baseUrl, token, customerId, scanAction, scanExtra, circaKey, nwKey, nwWarehouse;
     private CheckBox online, batch, sound, vibrate;
-    private TextView dataStatus, storeStatus;
+    private TextView dataStatus, storeStatus, nwStatus;
     private Handler ui;
 
     @Override
@@ -45,6 +45,9 @@ public class SettingsActivity extends Activity {
         dataStatus = (TextView) findViewById(R.id.s_data_status);
         storeStatus = (TextView) findViewById(R.id.s_store_status);
         circaKey = (EditText) findViewById(R.id.s_circa_key);
+        nwKey = (EditText) findViewById(R.id.s_nw_key);
+        nwWarehouse = (EditText) findViewById(R.id.s_nw_warehouse);
+        nwStatus = (TextView) findViewById(R.id.s_nw_status);
 
         Settings s = app.settings();
         baseUrl.setText(s.baseUrl());
@@ -57,6 +60,8 @@ public class SettingsActivity extends Activity {
         sound.setChecked(s.sound());
         vibrate.setChecked(s.vibrate());
         circaKey.setText(s.circaKey());
+        nwKey.setText(s.nwKeyOverride());
+        nwWarehouse.setText(s.nwWarehouseOverride());
 
         findViewById(R.id.s_save).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { save(); }
@@ -93,6 +98,20 @@ public class SettingsActivity extends Activity {
         super.onResume();
         String store = app.settings().storeLabel();
         storeStatus.setText(store.isEmpty() ? "Kho: chưa chọn" : "Kho: " + store);
+        refreshNwStatus();
+    }
+
+    /** Which NW key and warehouse are in use (saved settings). */
+    private void refreshNwStatus() {
+        Settings s = app.settings();
+        String key = !s.nwKeyOverride().isEmpty() ? "Khóa Nextwaves: đã nhập / quét QR"
+                : Settings.hasBuiltinNwKey() ? "Khóa Nextwaves: có sẵn trong app (để trống ô trên)"
+                : "Khóa Nextwaves: chưa có";
+        String wh = s.nwWarehouseId();
+        String how = s.nwWarehouseOverride().isEmpty() ? "tự khớp theo tên kho" : "nhập tay";
+        nwStatus.setText(key + "\n" + (wh.isEmpty()
+                ? "Kho Nextwaves: chưa có cho kho Circa đang chọn"
+                : "Kho Nextwaves: " + NextwavesClient.warehouseLabel(wh) + " (" + how + ")"));
     }
 
     private void refreshStatus() {
@@ -123,12 +142,20 @@ public class SettingsActivity extends Activity {
             toast("customerId phải là số");
             return false;
         }
-        String oldKey = app.settings().circaKey();
+        String wh = Settings.headerSafe(nwWarehouse.getText().toString());
+        if (!wh.isEmpty() && !NextwavesClient.isUuid(wh)) {
+            toast("Kho Nextwaves phải là UUID (dạng 3f7bd541-…) hoặc để trống");
+            return false;
+        }
+        Settings s = app.settings();
+        String oldKey = s.circaKey(), oldNwKey = s.nwKey(), oldWh = s.nwWarehouseOverride();
         String key = circaKey.getText().toString().trim();
-        app.settings().save(baseUrl.getText().toString().trim(), token.getText().toString().trim(), cid,
+        String nk = nwKey.getText().toString().trim();
+        s.save(baseUrl.getText().toString().trim(), token.getText().toString().trim(), cid,
                 online.isChecked(), batch.isChecked(), scanAction.getText().toString().trim(),
-                scanExtra.getText().toString().trim(), sound.isChecked(), vibrate.isChecked(), key);
-        if (!key.equals(oldKey)) app.resolver().clearStockCache();
+                scanExtra.getText().toString().trim(), sound.isChecked(), vibrate.isChecked(), key, nk, wh);
+        if (!key.equals(oldKey) || !s.nwKey().equals(oldNwKey) || !wh.equals(oldWh)) app.resolver().clearStockCache();
+        refreshNwStatus();
         return true;
     }
 
@@ -156,6 +183,8 @@ public class SettingsActivity extends Activity {
             // The form was saved before leaving; show what is stored now (the key is sanitized on
             // save), so a later "Lưu" can never write a stale key back.
             circaKey.setText(app.settings().circaKey());
+            nwKey.setText(app.settings().nwKeyOverride());
+            nwWarehouse.setText(app.settings().nwWarehouseOverride());
         }
     }
 

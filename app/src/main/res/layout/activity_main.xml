@@ -89,6 +89,8 @@
             android:textSize="14sp" />
     </LinearLayout>
 
+    <!-- Scan field: keyboard-wedge scanners type into it (it must stay focusable). Small, with only
+         ABC for typing by hand; Enter from the scanner or the keyboard submits. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -96,38 +98,32 @@
         android:orientation="horizontal"
         android:paddingLeft="12dp"
         android:paddingRight="12dp"
-        android:paddingTop="12dp">
+        android:paddingTop="8dp">
 
         <EditText
             android:id="@+id/input"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="40dp"
             android:layout_weight="1"
             android:background="@drawable/bg_input"
-            android:hint="Quét mã QR"
+            android:hint="Quét QR hoặc nhập mã"
             android:imeOptions="actionGo|flagNoExtractUi"
             android:inputType="textNoSuggestions|textVisiblePassword"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
             android:singleLine="true"
             android:textColor="#111827"
             android:textColorHint="@color/ink_faint"
-            android:textSize="15sp" />
-
-        <TextView
-            android:id="@+id/btn_go"
-            style="@style/TopButton"
-            android:text="TRA" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/btn_keyboard"
             style="@style/TopButton"
-            android:text="ABC" />
-
-        <TextView
-            android:id="@+id/btn_camera"
-            style="@style/TopButton"
-            android:text="CAM" />
+            android:layout_height="40dp"
+            android:contentDescription="Bật bàn phím để gõ mã"
+            android:minWidth="52dp"
+            android:text="ABC"
+            android:textSize="13sp" />
     </LinearLayout>
 
     <!-- Tag card, last product and counters are the list header (main_header.xml): they scroll

@@ -89,6 +89,39 @@
             style="@style/Help"
             android:text="Khóa chỉ được gửi tới api.v2.circa.vn. Dùng để tra mã QR ra sản phẩm, xem tồn kho của kho đã chọn và ảnh sản phẩm. Loại tem vẫn lấy từ dữ liệu local." />
 
+        <TextView
+            style="@style/Label"
+            android:layout_marginTop="22dp"
+            android:text="NEXTWAVES — TỒN NW (SỐ THẺ EPC)" />
+
+        <TextView style="@style/Label" android:text="Khóa API Nextwaves" />
+        <EditText
+            android:id="@+id/s_nw_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:hint="để trống = dùng khóa có sẵn trong app"
+            android:inputType="textPassword"
+            android:singleLine="true" />
+
+        <TextView style="@style/Label" android:text="Kho Nextwaves (UUID, để trống = tự khớp theo tên kho)" />
+        <EditText
+            android:id="@+id/s_nw_warehouse"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:hint="để trống"
+            android:inputType="textNoSuggestions|textVisiblePassword"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/s_nw_status"
+            style="@style/Help" />
+
+        <TextView
+            style="@style/Help"
+            android:text="Khóa chỉ được gửi tới api-circa.nextwaves.app. Dùng để đếm số thẻ EPC còn tồn của sản phẩm trong kho Nextwaves tương ứng với kho Circa đã chọn (kho có chữ LUMINA → Lumina, FLORITA → Florita)." />
+
         <CheckBox
             android:id="@+id/s_online"
             android:layout_width="match_parent"

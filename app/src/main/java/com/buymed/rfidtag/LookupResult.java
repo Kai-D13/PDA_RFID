@@ -39,6 +39,12 @@ public final class LookupResult {
     public CircaClient.Detail detail;
     public String stockError;
     public boolean stockLoading;
+    /** Nextwaves: RFID tags (EPCs) of the product in the NW warehouse of the current store. */
+    public NextwavesClient.EpcStock nw;
+    public String nwError;
+    /** nwError is "not configured" (no key / no NW warehouse), not a failure. */
+    public boolean nwSetup;
+    public boolean nwLoading;
 
     public static int statusForTag(String tagType) {
         if (tagType == null) return UNCONFIGURED;
@@ -101,6 +107,13 @@ public final class LookupResult {
         }
         if (stockLoading) return "đang tải…";
         return stockError;
+    }
+
+    /** "31 thẻ · 93 cái", "đang đếm…", the error / setup hint, or null. */
+    public String nwSummary() {
+        if (nw != null) return NextwavesClient.line(nw);
+        if (nwLoading) return "đang đếm…";
+        return nwError;
     }
 
     /** Best known product name: local data, then Circa. */

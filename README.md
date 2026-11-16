@@ -2,11 +2,16 @@
 
 Chọn kho Circa → quét mã QR Buymed → ra ngay loại tem RFID (**TEM THƯỜNG** / **TEM GẬP**) của sản
 phẩm, tra trong dữ liệu local đóng gói sẵn trong app (72.394 sản phẩm từ
-`loai_tem_rfid_global_san_pham.xlsx`, 15/11/2026), kèm tên, product ID, mã QR, lô/HSD và **tồn kho**
-của kho đang chọn. Chạm vào kết quả hoặc một dòng lịch sử để xem **ảnh sản phẩm** và tồn kho theo
-vị trí / lô.
+`loai_tem_rfid_global_san_pham.xlsx`, 15/11/2026), kèm tên, product ID, mã QR, lô/HSD, SKU,
+**Tồn POS** (Circa POS, kho đang chọn) và **Tồn NW** (số thẻ EPC còn tồn trên Nextwaves). Chạm vào
+kết quả hoặc một dòng lịch sử để xem **ảnh sản phẩm** và tồn theo vị trí / lô.
 
-File cài: `dist/rfid-tem-check-1.1.1.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
+Khóa Circa (`ck_u_…`) không có trong APK: nạp vào PDA bằng QR cài đặt tạo từ `tools/config_qr.html`
+(chạy offline) hoặc nhập ở màn Cài đặt. Khóa Nextwaves được nhúng lúc build từ file local
+`BuiltinKeys.java` (không có trong repo); APK build từ repo này mà thiếu file đó thì nạp khóa NW bằng QR.
+
+File cài: `dist/rfid-tem-check-<phiên bản>.apk` (1,9 MB, Android 5.0 trở lên, không cần Google Play).
+Từ 1.2.0 APK **không còn trên GitHub** (có khóa Nextwaves): lấy file từ người build, chép qua USB.
 
 Tài liệu cho dev/agent: [`CLAUDE.md`](CLAUDE.md), [`docs/HANDOFF.md`](docs/HANDOFF.md), [`docs/API.md`](docs/API.md).
 
@@ -52,13 +57,13 @@ quét); quét liên tiếp nhiều thùng cùng sản phẩm trong 60 giây thì
 
 ## 2. Cài lên PDA
 
-**Cách 1 — copy file:** chép `rfid-tem-check-1.1.1.apk` vào PDA (USB / Drive / Zalo), mở file, cho
+**Cách 1 — copy file:** chép `rfid-tem-check-1.2.0.apk` vào PDA (USB / Drive / Zalo), mở file, cho
 phép "Cài ứng dụng không rõ nguồn gốc" khi máy hỏi.
 
 **Cách 2 — adb:**
 
 ```bash
-adb install -r dist/rfid-tem-check-1.1.1.apk
+adb install -r dist/rfid-tem-check-1.2.0.apk
 ```
 
 Cập nhật bản mới: cài đè, giữ nguyên dữ liệu và cài đặt (vì cùng khóa ký `signing/rfidtag-release.jks`

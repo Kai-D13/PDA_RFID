@@ -11,3 +11,7 @@ signing/*.jks
 dist/*.zip
 dist/*.idsig
 .vscode/
+# Nextwaves key compiled into local builds (v1.2.0); the repo is public, so is anything pushed here.
+app/src/main/java/com/buymed/rfidtag/BuiltinKeys.java
+# APKs built here carry that key: share them by USB, never push them. (1.0.0-1.1.1 stay tracked, key-free.)
+dist/*.apk

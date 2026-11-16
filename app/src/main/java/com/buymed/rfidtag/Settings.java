@@ -26,6 +26,8 @@ public final class Settings {
     private static final String K_STORE_CODE = "store_code";
     private static final String K_STORE_NAME = "store_name";
     private static final String K_CLIENT_ID = "circa_client_id";
+    private static final String K_NW_KEY = "nw_key";
+    private static final String K_NW_WAREHOUSE = "nw_warehouse_id";
 
     private final SharedPreferences sp;
 
@@ -57,6 +59,53 @@ public final class Settings {
     public String storeCode() { return sp.getString(K_STORE_CODE, "").trim(); }
     public String storeName() { return sp.getString(K_STORE_NAME, "").trim(); }
     public long circaClientId() { return sp.getLong(K_CLIENT_ID, 1); }
+
+    /** Nextwaves key compiled into this build (gitignored BuiltinKeys), or "" (CI, fresh clones). */
+    static final String BUILTIN_NW_KEY = builtinKey("com.buymed.rfidtag.BuiltinKeys");
+
+    /** Reflection, so the code compiles whether or not the local-only key class exists. */
+    static String builtinKey(String className) {
+        try {
+            Object v = Class.forName(className).getField("NW_KEY").get(null);
+            return v instanceof String ? headerSafe((String) v) : "";
+        } catch (Exception e) {
+            return "";
+        } catch (LinkageError e) {
+            return "";
+        }
+    }
+
+    public static boolean hasBuiltinNwKey() { return !BUILTIN_NW_KEY.isEmpty(); }
+
+    /** NW key typed in Settings or brought by a settings QR; "" = use the built-in one. */
+    public String nwKeyOverride() { return headerSafe(sp.getString(K_NW_KEY, "")); }
+
+    /**
+     * Nextwaves public API key ("nwc_pk_…:nwc_sk_…"), sent as a Bearer token to
+     * NextwavesClient.BASE_URL only: the override, else the key built into the APK.
+     */
+    public String nwKey() {
+        String k = nwKeyOverride();
+        return k.isEmpty() ? BUILTIN_NW_KEY : k;
+    }
+    /** NW warehouse UUID typed in Settings / a settings QR; "" = match the Circa store by name. */
+    public String nwWarehouseOverride() { return headerSafe(sp.getString(K_NW_WAREHOUSE, "")); }
+
+    /** NW warehouse for the chosen Circa store: the override, else by store name; "" if none. */
+    public String nwWarehouseId() {
+        String o = nwWarehouseOverride();
+        return !o.isEmpty() ? o.toLowerCase(java.util.Locale.ROOT) : NextwavesClient.warehouseFor(storeName());
+    }
+
+    public boolean hasNwKey() { return !nwKey().isEmpty(); }
+
+    /** NW Authorization header; a bare key gets the "Bearer " scheme. */
+    public String nwAuthorizationHeader() {
+        String k = nwKey();
+        if (k.isEmpty()) return k;
+        if (k.indexOf(' ') > 0) return k;
+        return "Bearer " + k;
+    }
 
     public boolean hasCircaKey() { return !circaKey().isEmpty(); }
     public boolean hasStore() { return !storeId().isEmpty(); }
@@ -108,7 +157,8 @@ public final class Settings {
     }
 
     public void save(String baseUrl, String token, long customerId, boolean online, boolean batch,
-                     String action, String extra, boolean sound, boolean vibrate, String circaKey) {
+                     String action, String extra, boolean sound, boolean vibrate, String circaKey,
+                     String nwKey, String nwWarehouse) {
         sp.edit()
                 .putString(K_BASE, baseUrl)
                 .putString(K_TOKEN, token)
@@ -120,6 +170,8 @@ public final class Settings {
                 .putBoolean(K_SOUND, sound)
                 .putBoolean(K_VIBRATE, vibrate)
                 .putString(K_CIRCA_KEY, headerSafe(circaKey))
+                .putString(K_NW_KEY, headerSafe(nwKey))
+                .putString(K_NW_WAREHOUSE, headerSafe(nwWarehouse))
                 .apply();
     }
 
@@ -135,7 +187,7 @@ public final class Settings {
     /**
      * Applies a settings QR: "RFIDCFG:" followed by JSON with any of
      * baseUrl, token, customerId, online, batchInference, scanAction, scanExtra,
-     * circaKey, storeId, storeCode, storeName.
+     * circaKey, storeId, storeCode, storeName, nwKey, nwWarehouseId.
      * Lets an admin configure many PDAs by scanning one code instead of typing a key.
      */
     public int applyConfig(String json) throws JSONException {
@@ -160,6 +212,14 @@ public final class Settings {
         // The Circa base URL is fixed in the app, so a settings QR can only change the key, not
         // where it is sent.
         if (o.has("circaKey")) { e.putString(K_CIRCA_KEY, headerSafe(jsonStr(o, "circaKey"))); n++; }
+        // Like Circa, the NW address is fixed in the app; a QR only changes the key / warehouse.
+        if (o.has("nwKey")) { e.putString(K_NW_KEY, headerSafe(jsonStr(o, "nwKey"))); n++; }
+        if (o.has("nwWarehouseId")) {
+            String wh = headerSafe(jsonStr(o, "nwWarehouseId"));
+            if (!wh.isEmpty() && !NextwavesClient.isUuid(wh)) throw new JSONException("nwWarehouseId phải là UUID");
+            e.putString(K_NW_WAREHOUSE, wh);
+            n++;
+        }
         if (o.has("storeId")) {
             e.putString(K_STORE_ID, headerSafe(jsonStr(o, "storeId")));
             e.putString(K_STORE_CODE, jsonStr(o, "storeCode"));

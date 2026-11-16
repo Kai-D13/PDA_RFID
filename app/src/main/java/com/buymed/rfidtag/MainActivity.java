@@ -14,7 +14,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.TypefaceSpan;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
@@ -37,7 +41,6 @@ import java.util.concurrent.Executors;
  *  - the camera button
  */
 public class MainActivity extends Activity {
-    static final int REQ_CAMERA = 1;
     static final int MAX_HISTORY = 200;
 
     /** Broadcast actions used by common PDA scanner services, plus our own for DataWedge etc. */
@@ -57,8 +60,8 @@ public class MainActivity extends Activity {
 
     private RfidApp app;
     private EditText input;
-    private TextView dataInfo, modeBadge, storeBar, resultTag, resultSub, productName, productMeta, codeMeta,
-            stockMeta, sourceMeta, warnText, moreHint, counters;
+    private TextView dataInfo, modeBadge, storeBar, resultTag, resultSub, productName, idQr, lotLine, skuLine,
+            stockMeta, nwMeta, warnText, moreHint, counters;
     private View resultCard, productPanel;
     /** History; its header holds the tag card and product panel so everything below the input scrolls. */
     private ListView list;
@@ -69,6 +72,8 @@ public class MainActivity extends Activity {
     private ExecutorService exec;
     /** Stock + product details. */
     private ExecutorService net;
+    /** Nextwaves tag count: several calls, so kept off {@link #net} to never delay the POS stock. */
+    private ExecutorService nwNet;
     private Handler ui;
     /** Result shown on the card/panel; null while a new scan is being looked up. Read by {@link #net}. */
     private volatile LookupResult current;
@@ -93,6 +98,7 @@ public class MainActivity extends Activity {
         ui = new Handler(Looper.getMainLooper());
         exec = Executors.newSingleThreadExecutor();
         net = Executors.newSingleThreadExecutor();
+        nwNet = Executors.newSingleThreadExecutor();
         feedback = new Feedback(this);
 
         input = (EditText) findViewById(R.id.input);
@@ -108,10 +114,11 @@ public class MainActivity extends Activity {
         resultSub = (TextView) header.findViewById(R.id.result_sub);
         productPanel = header.findViewById(R.id.product_panel);
         productName = (TextView) header.findViewById(R.id.product_name);
-        productMeta = (TextView) header.findViewById(R.id.product_meta);
-        codeMeta = (TextView) header.findViewById(R.id.code_meta);
+        idQr = (TextView) header.findViewById(R.id.id_qr);
+        lotLine = (TextView) header.findViewById(R.id.lot_line);
+        skuLine = (TextView) header.findViewById(R.id.sku_line);
         stockMeta = (TextView) header.findViewById(R.id.stock_meta);
-        sourceMeta = (TextView) header.findViewById(R.id.source_meta);
+        nwMeta = (TextView) header.findViewById(R.id.nw_meta);
         warnText = (TextView) header.findViewById(R.id.warn_text);
         moreHint = (TextView) header.findViewById(R.id.more_hint);
         counters = (TextView) header.findViewById(R.id.counters);
@@ -169,13 +176,9 @@ public class MainActivity extends Activity {
             }
         });
 
-        click(R.id.btn_go, new Runnable() { @Override public void run() { submitInput(); } });
+        // TRA and CAM were removed in v1.2 (operator request): scanners send Enter, and the
+        // keyboard opened by ABC has a Go key. CameraScanActivity is kept but not reachable.
         click(R.id.btn_keyboard, new Runnable() { @Override public void run() { toggleKeyboard(); } });
-        click(R.id.btn_camera, new Runnable() {
-            @Override public void run() {
-                startActivityForResult(new Intent(MainActivity.this, CameraScanActivity.class), REQ_CAMERA);
-            }
-        });
         click(R.id.btn_settings, new Runnable() {
             @Override public void run() { startActivity(new Intent(MainActivity.this, SettingsActivity.class)); }
         });
@@ -269,16 +272,8 @@ public class MainActivity extends Activity {
         if (popup != null) popup.dismiss();
         exec.shutdownNow();
         net.shutdownNow();
+        nwNet.shutdownNow();
         feedback.release();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_CAMERA && resultCode == RESULT_OK && data != null) {
-            String text = data.getStringExtra(CameraScanActivity.EXTRA_TEXT);
-            if (text != null) handleScan(text);
-        }
     }
 
     // ------------------------------------------------------------------ input
@@ -421,7 +416,7 @@ public class MainActivity extends Activity {
         resultSub.setText(sub);
         resultSub.setVisibility(sub == null || sub.isEmpty() ? View.GONE : View.VISIBLE);
         resultSub.setTypeface(null, subBold ? Typeface.BOLD : Typeface.NORMAL);
-        resultSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, subBold ? 17 : 15);
+        resultSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, subBold ? 14 : 13);
     }
 
     private void showIdle() {
@@ -481,21 +476,26 @@ public class MainActivity extends Activity {
         String name = r.displayName();
         productName.setText(name != null ? name : r.status == LookupResult.ERROR ? "Không tra được mã" : r.headline());
 
-        StringBuilder meta = new StringBuilder();
-        if (r.productId >= 0) meta.append("ID ").append(r.productId);
-        if (r.lot != null) meta.append(meta.length() > 0 ? "  ·  " : "").append("Lô ").append(r.lot);
-        if (r.expiry != null) meta.append(meta.length() > 0 ? "  ·  " : "").append("HSD ").append(r.expiry);
-        productMeta.setText(meta);
-        productMeta.setVisibility(meta.length() > 0 ? View.VISIBLE : View.GONE);
-
-        codeMeta.setText(r.code != null ? "QR " + r.code : r.input != null ? "Đầu vào: " + r.input : "");
+        // Order asked for on the PDA: ID + QR, then lot + expiry, then SKU, then both stocks.
+        SpannableStringBuilder line = new SpannableStringBuilder();
+        if (r.productId >= 0) field(line, "ID:", String.valueOf(r.productId), false);
+        if (r.code != null) field(line, "QR:", r.code, true);
+        else if (r.input != null && r.productId < 0) field(line, "Đầu vào:", r.input, true);
+        showLine(idQr, line);
+        line = new SpannableStringBuilder();
+        field(line, "Lô:", r.lot, false);
+        field(line, "HSD:", r.expiry, false);
+        showLine(lotLine, line);
+        line = new SpannableStringBuilder();
+        field(line, "SKU:", r.sku, false);
+        showLine(skuLine, line);
 
         String stock = r.hasProduct() ? r.stockSummary() : null;
         if (stock != null) {
             boolean bad = r.stock == null && !r.stockLoading;
             // A failed refresh keeps the last numbers of the same store; say they are not fresh.
             boolean stale = r.stock != null && !r.stockLoading && r.stockError != null;
-            stockMeta.setText("Tồn kho: " + stock
+            stockMeta.setText("Tồn POS: " + stock
                     + (stale ? "  (chưa làm mới được, số lúc " + DateFmt.time(r.stock.fetchedAt) + ")" : ""));
             stockMeta.setTextColor(bad ? 0xFFB3261E : stale ? 0xFFB45309 : 0xFF1F2937);
             stockMeta.setVisibility(View.VISIBLE);
@@ -503,8 +503,20 @@ public class MainActivity extends Activity {
             stockMeta.setVisibility(View.GONE);
         }
 
-        sourceMeta.setText(r.source != null ? "Nguồn: " + r.source + "  ·  " + r.elapsedMs + " ms" : "");
-        sourceMeta.setVisibility(r.source != null ? View.VISIBLE : View.GONE);
+        String nw = r.hasProduct() ? r.nwSummary() : null;
+        if (nw != null) {
+            boolean stale = r.nw != null && !r.nwLoading && r.nwError != null;
+            boolean setup = r.nw == null && !r.nwLoading && r.nwSetup;
+            boolean bad = r.nw == null && !r.nwLoading && !r.nwSetup;
+            nwMeta.setText("Tồn NW: " + nw
+                    + (stale ? "  (chưa làm mới được, số lúc " + DateFmt.time(r.nw.fetchedAt) + ")" : ""));
+            nwMeta.setTextColor(bad ? 0xFFB3261E : stale ? 0xFFB45309 : setup ? 0xFF6B7280 : 0xFF1F2937);
+            nwMeta.setTypeface(null, setup ? Typeface.NORMAL : Typeface.BOLD);
+            nwMeta.setVisibility(View.VISIBLE);
+        } else {
+            nwMeta.setVisibility(View.GONE);
+        }
+
         // The error itself is on the card; the panel only repeats warnings.
         if (r.warning != null) {
             warnText.setText("⚠ " + r.warning);
@@ -515,11 +527,28 @@ public class MainActivity extends Activity {
         moreHint.setVisibility(r.hasProduct() ? View.VISIBLE : View.GONE);
     }
 
+    /** Appends "label value" (value darker, monospace for codes); a label stays with its value when wrapping. */
+    private static void field(SpannableStringBuilder b, String label, String value, boolean mono) {
+        if (value == null || value.isEmpty()) return;
+        if (b.length() > 0) b.append("   ");
+        b.append(label).append('\u00A0');
+        int start = b.length();
+        b.append(value);
+        b.setSpan(new ForegroundColorSpan(0xFF111827), start, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        if (mono) b.setSpan(new TypefaceSpan("monospace"), start, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    private static void showLine(TextView t, CharSequence text) {
+        t.setText(text);
+        t.setVisibility(text.length() > 0 ? View.VISIBLE : View.GONE);
+    }
+
     // ------------------------------------------------------------------ stock + popup
 
     /** Fetches stock and product details off the UI thread, then refreshes every view showing {@code r}. */
     private void loadExtra(final LookupResult r, final boolean force) {
         if (destroyed) return;
+        loadNw(r, force);
         // Numbers from another store must never be shown as the current store's stock.
         dropStockOfOtherStore(r);
         r.stockLoading = true;
@@ -558,6 +587,48 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** Counts the product's RFID tags on Nextwaves on its own executor; refreshes the views when done. */
+    private void loadNw(final LookupResult r, final boolean force) {
+        dropNwOfOtherWarehouse(r);
+        r.nwLoading = true;
+        r.nwError = null;
+        nwNet.execute(new Runnable() {
+            @Override public void run() {
+                if (!force && r != current && r != popupFor) {
+                    ui.post(new Runnable() {
+                        @Override public void run() { r.nwLoading = false; refreshViewsFor(r); }
+                    });
+                    return;
+                }
+                Resolver.NwExtra fetched;
+                try {
+                    fetched = app.resolver().fetchNw(r.productId, force);
+                } catch (RuntimeException e) {
+                    fetched = new Resolver.NwExtra();
+                    fetched.error = "Lỗi khi đếm thẻ Nextwaves: " + e;
+                }
+                final Resolver.NwExtra x = fetched;
+                ui.post(new Runnable() {
+                    @Override public void run() {
+                        if (destroyed) return;
+                        r.nwLoading = false;
+                        if (x.stock != null) r.nw = x.stock;
+                        if (x.setup) r.nw = null;
+                        // The store (and so the NW warehouse) may have changed while this was in flight.
+                        dropNwOfOtherWarehouse(r);
+                        r.nwError = x.error;
+                        r.nwSetup = x.setup;
+                        refreshViewsFor(r);
+                    }
+                });
+            }
+        });
+    }
+
+    private void dropNwOfOtherWarehouse(LookupResult r) {
+        if (r.nw != null && !r.nw.warehouseId.equalsIgnoreCase(app.settings().nwWarehouseId())) r.nw = null;
+    }
+
     private void dropStockOfOtherStore(LookupResult r) {
         if (r.stock != null && !r.stock.storeId.equals(app.settings().storeId())) r.stock = null;
     }
@@ -583,9 +654,10 @@ public class MainActivity extends Activity {
         // An old scan opened from the history may never have had its stock fetched (or it failed),
         // or its numbers are hours old (seen on the PDA: opened at 23:22, stock from 20:56).
         // Not forced: within Resolver.STOCK_TTL_MS the cached numbers are reused without a call.
-        boolean stale = r.stock == null
-                || System.currentTimeMillis() - r.stock.fetchedAt >= Resolver.STOCK_TTL_MS;
-        if (r.hasProduct() && stale && !r.stockLoading) loadExtra(r, false);
+        long now = System.currentTimeMillis();
+        boolean stale = r.stock == null || now - r.stock.fetchedAt >= Resolver.STOCK_TTL_MS
+                || r.nw == null || now - r.nw.fetchedAt >= Resolver.STOCK_TTL_MS;
+        if (r.hasProduct() && stale && !r.stockLoading && !r.nwLoading) loadExtra(r, false);
     }
 
     @Override

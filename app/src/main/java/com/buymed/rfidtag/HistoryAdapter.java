@@ -42,8 +42,11 @@ final class HistoryAdapter extends BaseAdapter {
         sub.setText(s);
         // Setup errors ("chưa chọn kho"…) are shown on the main panel, not repeated on every row.
         String st = r.hasProduct() && (r.stock != null || r.stockLoading) ? r.stockSummary() : null;
-        stock.setText(st != null ? "Tồn: " + st : "");
-        stock.setVisibility(st != null ? View.VISIBLE : View.GONE);
+        String nw = r.hasProduct() && r.nw != null ? r.nw.epcCount + " thẻ" : null;
+        String line = st != null ? "POS " + st : "";
+        if (nw != null) line += (line.isEmpty() ? "" : "  ·  ") + "NW " + nw;
+        stock.setText(line);
+        stock.setVisibility(line.isEmpty() ? View.GONE : View.VISIBLE);
         return view;
     }
 }

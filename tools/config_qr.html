@@ -38,6 +38,9 @@
     <label for="ckey">Khóa API Circa POS</label>
     <input id="ckey" type="password" autocomplete="off" spellcheck="false" placeholder="ck_u_… (tra mã QR, tồn kho, ảnh sản phẩm)">
 
+    <label for="nkey">Khóa API Nextwaves</label>
+    <input id="nkey" type="password" autocomplete="off" spellcheck="false" placeholder="nwc_pk_…:nwc_sk_… (Tồn NW: số thẻ EPC)">
+
     <details id="buymed">
       <summary>API Buymed (dự phòng, tùy chọn)</summary>
       <label for="base">Môi trường API Buymed</label>
@@ -74,19 +77,25 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   function clearAll() {
-    $('ckey').value = ''; $('token').value = ''; $('qr').innerHTML = ''; $('info').textContent = '';
+    $('ckey').value = ''; $('nkey').value = ''; $('token').value = ''; $('qr').innerHTML = ''; $('info').textContent = '';
     $('out').hidden = true; $('err').textContent = '';
   }
   $('make').onclick = function () {
     $('err').textContent = '';
     var ckey = $('ckey').value.trim();
+    var nkey = $('nkey').value.trim();
     var token = $('token').value.trim();
     var cid = $('cid').value.trim();
-    if (!ckey && !token) { $('err').textContent = 'Chưa nhập khóa API Circa (hoặc token Buymed).'; return; }
+    if (!ckey && !nkey && !token) { $('err').textContent = 'Chưa nhập khóa API Circa, Nextwaves (hoặc token Buymed).'; return; }
     if (/\s/.test(ckey)) { $('err').textContent = 'Khóa Circa không được có dấu cách.'; return; }
+    if (/\s/.test(nkey)) { $('err').textContent = 'Khóa Nextwaves không được có dấu cách.'; return; }
+    if (nkey && !/^nwc_pk_[^:]+:nwc_sk_.+$/.test(nkey)) {
+      $('err').textContent = 'Khóa Nextwaves phải có dạng nwc_pk_…:nwc_sk_… (cả hai phần, nối bằng dấu hai chấm).'; return;
+    }
     var cfg = {};
     var info = [];
     if (ckey) { cfg.circaKey = ckey; info.push('Khóa Circa'); }
+    if (nkey) { cfg.nwKey = nkey; info.push('Khóa Nextwaves'); }
     if (token) {
       if (!/^\d+$/.test(cid)) { $('err').textContent = 'customerId phải là số.'; return; }
       if (token.indexOf(' ') < 0) token = 'Basic ' + token;

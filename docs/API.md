@@ -1,6 +1,7 @@
 # API cho RFID Tem Check — tóm tắt cho dev
 
-Từ v1.1.0 app dùng **Circa POS API** (mục A) để tra mã QR, tồn kho, ảnh; **API Buymed RFID QR**
+Từ v1.1.0 app dùng **Circa POS API** (mục A) để tra mã QR, tồn kho, ảnh; từ v1.2.0 thêm **Nextwaves** (mục C)
+để đếm số thẻ EPC còn tồn ("Tồn NW"); **API Buymed RFID QR**
 (mục B) chỉ còn là dự phòng khi Circa không tra được mã.
 
 ---
@@ -181,3 +182,55 @@ Ví dụ trong tài liệu cho thấy các mã sinh cùng một lần có chung 
 
 App tự thêm các mã nội bộ: `NETWORK` (không kết nối được), `BAD_RESPONSE` (JSON lỗi),
 `HTTP_<code>` (body rỗng), `NO_PRODUCT` (OK nhưng thiếu `productId`).
+
+---
+
+# C. Nextwaves Public API (`api-circa.nextwaves.app`) — "Tồn NW" từ v1.2.0
+
+Nguồn: brief nội bộ "Tồn Nextwaves theo thẻ EPC" (16/11/2026, kèm code mẫu Node). Brief viết cho
+một backend giữ khóa; app này không có backend nên **gọi thẳng từ PDA** (người dùng chọn 17/11/2026).
+Khóa riêng cho APK, **nhúng lúc build** từ `BuiltinKeys.java` (gitignored, không commit; APK có khóa
+không đưa lên GitHub); QR cài đặt / màn Cài đặt có thể đè bằng khóa khác.
+
+## Xác thực
+
+`Authorization: Bearer nwc_pk_…:nwc_sk_…` — mỗi tenant một khóa. Base URL cố định trong app
+(`NextwavesClient.BASE_URL` = `https://api-circa.nextwaves.app/api/v1/public`); QR cài đặt chỉ đổi
+được khóa / kho, không đổi được nơi nhận khóa. Khóa sai → HTTP 401.
+
+## Kho
+
+Kho NW là UUID riêng, không có trong dữ liệu Circa. App ghép theo **tên kho Circa** đang chọn
+(`NextwavesClient.warehouseFor`): có chữ `LUMINA` → Lumina `3f7bd541-7370-4ce0-9048-231cf061e91a`,
+`FLORITA` → Florita `eb5e2b4f-6f92-413b-90ef-6be1730b94c0`. Kho khác: nhập UUID trong Cài đặt
+(`nw_warehouse_id`) hoặc QR cài đặt (`nwWarehouseId`), hoặc thêm vào `warehouseFor`.
+
+## Đếm số thẻ EPC còn tồn (NW không có endpoint public trả thẳng con số này)
+
+| Bước | Endpoint (GET) | App đọc |
+|---|---|---|
+| 1. Circa id → sản phẩm NW | `/products/by-external/{circaProductId}` (số trần `1467`; `CIRCA-1467` trả 404) | `id` (UUID), `productIdentifier`, `title`, `baseUnitOfMeasure`. 404 = sản phẩm chưa có trên NW |
+| 2. Tổng theo số lượng | `/stock/summary?productId={uuid}&warehouseId={wh}` | `rfidStock` (tổng **đơn vị cơ sở** trên các thẻ, không phải số thẻ), `systemStock`, `untaggedStock` |
+| 3. Sổ kho | `/stock/ledger?productId=&warehouseId=&limit=1000&afterLedgerNumber=N` | `{data:[{warehouseId, quantity, epcs[]}], nextAfter}`; lặp với `afterLedgerNumber=nextAfter` đến khi `data` rỗng |
+| 4. Từng thẻ (chỉ khi 3 lệch 2) | `/integrations/circa/epcs/{epc}` | `status == "active"` và `warehouseId == wh` → còn tồn, `baseQuantity` |
+
+Thuật toán bước 3 (`NextwavesClient.parseLedgerPage` + `Ledger`): mỗi dòng của đúng kho chia đều
+`quantity` (dương nhập, âm xuất/bán) cho các EPC trong dòng; làm tròn 3 chữ số; EPC có số dư > 0 là
+còn tồn. `epcCount` = số EPC đó, `epcQuantity` = tổng số dư. Thẻ bán lẻ một phần vẫn là 1 thẻ.
+Lệch `rfidStock` quá 0,01 → bước 4 (4 luồng song song; bỏ qua nếu sổ kho có hơn 200 EPC, khi đó
+app ghi "(chưa khớp NW)").
+
+Điểm bất thường (theo brief, đã được người viết brief kiểm tra):
+- Thiếu `afterLedgerNumber` → trả 200 dòng **mới nhất** dạng mảng trần; `offset/page/from/sort/
+  actionType` bị bỏ qua; `limit` tối đa 1000.
+- `/tags?productId=…` bỏ qua bộ lọc; `/stock/rfid/…`, `/stock/epc-breakdown/…` chỉ nhận token người
+  dùng, không nhận khóa public.
+- Gọi dồn → 429; app thử lại sau 1 s, 2 s, 3 s… tối đa 6 lần. Timeout mỗi call: kết nối 8 s, đọc 20 s.
+
+Hiển thị: "Tồn NW: 31 thẻ · 93 cái" (đơn vị = `baseUnitOfMeasure`). Cache 60 s theo (kho NW, sản
+phẩm) như Tồn POS; sản phẩm 404 thì 10 phút sau mới hỏi lại; LÀM MỚI bỏ qua cache.
+
+Bảng test của brief (số liệu 16/11/2026 ~23:50, thay đổi theo thời gian; điều cần đạt là
+`epcQuantity == rfidStock`): 1467 Florita 1 thẻ/1.104 viên · 1467 Lumina 0 · 1890 Florita 10/10 ·
+10871 Lumina 31/93 cái · 2013079 Lumina 146/1.460 · 1066747 Lumina 80/800 · 93933 Lumina 150/150 que ·
+999999999 → không có trên NW.

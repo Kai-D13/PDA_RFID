@@ -45,7 +45,8 @@ final class ScanDetailDialog {
     private final Host host;
     private final Dialog dialog;
     private final View head;
-    private final TextView tag, unit, name, volumes, warn, stockTotal, stockSub, imageMsg, imageCount;
+    private final TextView tag, unit, name, volumes, warn, stockTotal, stockSub, nwTotal, nwSub, linesLabel,
+            imageMsg, imageCount;
     private final ImageView image;
     private final LinearLayout info, stockLines;
     private int imageIndex;
@@ -68,6 +69,9 @@ final class ScanDetailDialog {
         warn = (TextView) dialog.findViewById(R.id.d_warn);
         stockTotal = (TextView) dialog.findViewById(R.id.d_stock_total);
         stockSub = (TextView) dialog.findViewById(R.id.d_stock_sub);
+        nwTotal = (TextView) dialog.findViewById(R.id.d_nw_total);
+        nwSub = (TextView) dialog.findViewById(R.id.d_nw_sub);
+        linesLabel = (TextView) dialog.findViewById(R.id.d_lines_label);
         imageMsg = (TextView) dialog.findViewById(R.id.d_image_msg);
         imageCount = (TextView) dialog.findViewById(R.id.d_image_count);
         image = (ImageView) dialog.findViewById(R.id.d_image);
@@ -149,13 +153,13 @@ final class ScanDetailDialog {
         row("Số đăng ký", r.detail != null ? r.detail.registration : null, false);
         row("Quét lúc", new SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.US).format(new Date(r.time)), false);
         row("Kho lúc quét", r.storeLabel != null && !r.storeLabel.isEmpty() ? r.storeLabel : null, false);
-        row("Nguồn", r.source != null ? r.source + " · " + r.elapsedMs + " ms" : null, false);
 
         String w = r.status == LookupResult.ERROR ? r.error : r.warning;
         warn.setText(w != null ? "⚠ " + w : "");
         warn.setVisibility(w != null ? View.VISIBLE : View.GONE);
 
         renderStock();
+        renderNw();
         renderImage();
     }
 
@@ -178,6 +182,7 @@ final class ScanDetailDialog {
     private void renderStock() {
         stockLines.removeAllViews();
         stockSub.setTextColor(0xFF6B7280);
+        linesLabel.setVisibility(View.GONE);
         if (!r.hasProduct()) {
             stockTotal.setText("—");
             stockSub.setText("Chưa xác định được sản phẩm.");
@@ -185,7 +190,7 @@ final class ScanDetailDialog {
         }
         CircaClient.Stock s = r.stock;
         if (s == null) {
-            stockTotal.setText(r.stockLoading ? "Đang tải tồn kho…" : "Chưa có thông tin tồn kho");
+            stockTotal.setText(r.stockLoading ? "Tồn POS: đang tải…" : "Tồn POS: chưa có số liệu");
             if (r.stockError != null) {
                 stockSub.setText(r.stockError);
                 stockSub.setTextColor(0xFFB3261E);
@@ -194,7 +199,7 @@ final class ScanDetailDialog {
             }
             return;
         }
-        stockTotal.setText(r.stockSummary());
+        stockTotal.setText("Tồn POS: " + r.stockSummary());
         StringBuilder sub = new StringBuilder();
         if (s.storeName != null && !s.storeName.isEmpty()) sub.append(s.storeName).append(" · ");
         sub.append("cập nhật ").append(DateFmt.time(s.fetchedAt));
@@ -227,6 +232,43 @@ final class ScanDetailDialog {
             }
         }
         if (rows >= MAX_STOCK_ROWS) line("… còn nữa, xem đầy đủ trên Circa POS", 13f, false, 0);
+        linesLabel.setVisibility(rows > 0 ? View.VISIBLE : View.GONE);
+    }
+
+    /** "Tồn NW: 31 thẻ · 93 cái" and where / when it was counted, or why there is no number. */
+    private void renderNw() {
+        nwSub.setTextColor(0xFF6B7280);
+        if (!r.hasProduct()) {
+            nwTotal.setVisibility(View.GONE);
+            nwSub.setVisibility(View.GONE);
+            return;
+        }
+        nwTotal.setVisibility(View.VISIBLE);
+        nwSub.setVisibility(View.VISIBLE);
+        NextwavesClient.EpcStock s = r.nw;
+        if (s == null) {
+            nwTotal.setText("Tồn NW: " + (r.nwLoading ? "đang đếm thẻ…" : r.nwSetup ? "chưa cấu hình" : "chưa có số liệu"));
+            nwSub.setText(r.nwError != null ? r.nwError : "");
+            if (r.nwError != null && !r.nwSetup) nwSub.setTextColor(0xFFB3261E);
+            return;
+        }
+        nwTotal.setText("Tồn NW: " + NextwavesClient.line(s));
+        String unitName = s.baseUnit != null ? " " + s.baseUnit : "";
+        StringBuilder sub = new StringBuilder("Nextwaves ").append(NextwavesClient.warehouseLabel(s.warehouseId))
+                .append(" · cập nhật ").append(DateFmt.time(s.fetchedAt));
+        if (s.found) {
+            if (s.consistent) {
+                sub.append(" · khớp tổng NW");
+            } else {
+                sub.append("\nChưa khớp: NW ghi ").append(CircaClient.qty(s.rfidStock)).append(unitName)
+                        .append(" trên thẻ, đếm sổ kho ra ").append(CircaClient.qty(s.epcQuantity)).append(unitName);
+            }
+            if (s.verified) sub.append(" · đã tra từng thẻ");
+            if (s.untaggedStock > 0) sub.append(" · chưa gắn thẻ ").append(CircaClient.qty(s.untaggedStock)).append(unitName);
+        }
+        if (r.nwLoading) sub.append(" · đang làm mới…");
+        if (r.nwError != null) sub.append("\nLàm mới lỗi: ").append(r.nwError);
+        nwSub.setText(sub);
     }
 
     private void line(String text, float sp, boolean bold, int indentPx) {

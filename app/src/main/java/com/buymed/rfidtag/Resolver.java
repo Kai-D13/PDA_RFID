@@ -30,6 +30,10 @@ public final class Resolver {
     private final Map<String, CircaClient.Stock> stockCache = Collections.synchronizedMap(new Lru<String, CircaClient.Stock>(200));
     private final Map<Long, CircaClient.Detail> detailCache = Collections.synchronizedMap(new Lru<Long, CircaClient.Detail>(300));
     private final Map<Long, Long> detailMiss = Collections.synchronizedMap(new Lru<Long, Long>(300));
+    private final Map<String, NextwavesClient.EpcStock> nwStockCache = Collections.synchronizedMap(new Lru<String, NextwavesClient.EpcStock>(200));
+    private final Map<Long, NextwavesClient.Product> nwProducts = Collections.synchronizedMap(new Lru<Long, NextwavesClient.Product>(300));
+    /** Circa products NW does not have (404), asked again after {@link #DETAIL_RETRY_MS}. */
+    private final Map<Long, Long> nwMiss = Collections.synchronizedMap(new Lru<Long, Long>(300));
 
     public Resolver(ProductRepository repo, ScanCache cache, Settings settings) {
         this.repo = repo;
@@ -50,6 +54,8 @@ public final class Resolver {
         if (p.kind == QrParser.CONFIG) {
             try {
                 int n = settings.applyConfig(p.code);
+                // A new key or warehouse: numbers fetched with the old ones must not be reused.
+                clearStockCache();
                 r.status = LookupResult.CONFIG;
                 r.source = "QR cài đặt: đã áp dụng " + n + " mục";
                 r.input = "RFIDCFG";
@@ -249,9 +255,85 @@ public final class Resolver {
         return x;
     }
 
-    /** Drops cached stock, e.g. after switching store. */
+    /** Result of {@link #fetchNw}: {@code stock} or {@code error}; {@code setup} = not configured. */
+    public static final class NwExtra {
+        public NextwavesClient.EpcStock stock;
+        public String error;
+        public boolean setup;
+    }
+
+    /**
+     * Number of RFID tags (EPCs) of the product in the NW warehouse matching the current store
+     * (cached {@link #STOCK_TTL_MS} per warehouse + product, unless {@code force}). Blocking.
+     */
+    public NwExtra fetchNw(long productId, boolean force) {
+        NwExtra x = new NwExtra();
+        if (!settings.online()) {
+            x.error = "đang tắt tra cứu online";
+            x.setup = true;
+            return x;
+        }
+        if (!settings.hasNwKey()) {
+            x.error = "chưa có khóa Nextwaves (Cài đặt)";
+            x.setup = true;
+            return x;
+        }
+        String wh = settings.nwWarehouseId();
+        if (wh.isEmpty()) {
+            x.error = "kho này chưa nối kho Nextwaves (Cài đặt)";
+            x.setup = true;
+            return x;
+        }
+        String key = wh + "/" + productId;
+        long now = System.currentTimeMillis();
+        NextwavesClient.EpcStock cached = nwStockCache.get(key);
+        if (!force && cached != null && now - cached.fetchedAt < STOCK_TTL_MS) {
+            x.stock = cached;
+            return x;
+        }
+        String header = settings.nwAuthorizationHeader();
+        NextwavesClient.Product p = nwProducts.get(productId);
+        if (p == null) {
+            Long missedAt = nwMiss.get(productId);
+            if (force || missedAt == null || now - missedAt >= DETAIL_RETRY_MS) {
+                CircaClient.Reply<NextwavesClient.Product> pr = NextwavesClient.product(header, productId);
+                if (!pr.ok) {
+                    x.error = pr.message;
+                    return x;
+                }
+                p = pr.value;
+                if (p != null) {
+                    nwProducts.put(productId, p);
+                    nwMiss.remove(productId);
+                } else {
+                    nwMiss.put(productId, now);
+                }
+            }
+            if (p == null) {
+                NextwavesClient.EpcStock none = new NextwavesClient.EpcStock();
+                none.warehouseId = wh;
+                none.consistent = true;
+                none.fetchedAt = now;
+                x.stock = none;
+                return x;
+            }
+        }
+        CircaClient.Reply<NextwavesClient.EpcStock> sr = NextwavesClient.epcStock(header, p, wh);
+        if (!sr.ok) {
+            x.error = sr.message;
+            return x;
+        }
+        nwStockCache.put(key, sr.value);
+        x.stock = sr.value;
+        return x;
+    }
+
+    /** Drops cached stock, e.g. after switching store or key. */
     public void clearStockCache() {
         stockCache.clear();
+        nwStockCache.clear();
+        nwProducts.clear();
+        nwMiss.clear();
     }
 
     private static final class Lru<K, V> extends LinkedHashMap<K, V> {

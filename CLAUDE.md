@@ -10,6 +10,10 @@ những gì đã/chưa kiểm chứng và backlog. Tóm tắt API ở `docs/API.
 
 - **Repo PUBLIC.** Không commit: file khóa ký `signing/*.jks`, token API (`Basic ...`),
   file tài liệu API nội bộ dạng HTML (có chứa token production), email/thông tin cá nhân.
+- **Khóa Nextwaves nhúng lúc build (từ v1.2.0):** nằm trong
+  `app/src/main/java/com/buymed/rfidtag/BuiltinKeys.java` (gitignored, đọc bằng reflection; thiếu file
+  vẫn build được, app dùng khóa từ QR). APK build trên máy có file này **chứa khóa** → `dist/*.apk`
+  đã gitignore; **không** `git add -f`, không đưa APK mới lên GitHub/Release. Chép APK qua USB.
 - **Java thuần, không AndroidX, không lambda / method reference / stream / `String.join`
   kiểu Java 8 API mới.** `build_apk.sh` dex bằng `dx` với `--min-sdk-version=21`, không hỗ trợ
   `invokedynamic`. Dùng anonymous class. Chỉ dùng API Android ≤ 21, hoặc bọc `Build.VERSION.SDK_INT`.
